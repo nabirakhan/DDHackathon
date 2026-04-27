@@ -28,9 +28,9 @@ export const wsClient = {
     ws.send(JSON.stringify(msg))
   },
 
-  on(fn: Listener) {
+  on(fn: Listener): () => void {
     listeners.add(fn)
-    return () => listeners.delete(fn)
+    return () => { listeners.delete(fn) }
   },
 
   connect(url: string) {

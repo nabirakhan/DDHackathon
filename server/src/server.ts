@@ -1,6 +1,8 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
+import { rateLimit } from 'express-rate-limit'
 import { WebSocketServer } from 'ws'
 import { createServer } from 'http'
 import roomsRouter from './routes/rooms.js'
@@ -8,7 +10,20 @@ import eventsRouter from './routes/events.js'
 import { attachAuth } from './middleware/auth.js'
 
 const app = express()
-app.use(express.json())
+
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}))
+
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+}))
+
+app.use(express.json({ limit: '1mb' }))
 
 const allowedOrigins = () => [
   process.env.CLIENT_ORIGIN,

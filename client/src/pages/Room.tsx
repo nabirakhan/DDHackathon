@@ -7,8 +7,9 @@ import { ConnectionBanner } from '../components/ConnectionBanner'
 import { CursorPresence } from '../components/CursorPresence'
 import { TaskBoard } from '../components/TaskBoard'
 import { EventLog } from '../components/EventLog'
-import { SessionHealthBar } from '../components/SessionHealthBar'
+import { TopBar } from '../components/TopBar'
 import { ContestedNodeOverlay } from '../components/ContestedNodeOverlay'
+import { ToolDock, AIStatusPill } from '../components/ToolDock'
 import { wsClient } from '../lib/wsClient'
 
 function RoomInner({ roomId }: { roomId: string }) {
@@ -22,19 +23,42 @@ function RoomInner({ roomId }: { roomId: string }) {
   }, [roomId])
 
   return (
-    <div className="flex flex-col h-screen">
+    <>
+      {/* Floating UI shell — all position: fixed, z-index above tldraw */}
+      <TopBar roomId={roomId} />
       <ConnectionBanner />
-      <SessionHealthBar />
-      <div className="flex flex-1 overflow-hidden">
-        <EventLog roomId={roomId} />
-        <div className="flex-1 relative">
-          <CursorPresence roomId={roomId} />
-          <ContestedNodeOverlay roomId={roomId} />
-        </div>
-        <TaskBoard roomId={roomId} />
-      </div>
-      <Toaster position="bottom-center" />
-    </div>
+
+      {/* Left panel: Event Log */}
+      <EventLog roomId={roomId} />
+
+      {/* Right panel: Task Board */}
+      <TaskBoard roomId={roomId} />
+
+      {/* Contested nodes — bottom right */}
+      <ContestedNodeOverlay roomId={roomId} />
+
+      {/* Cursor presence — full viewport overlay */}
+      <CursorPresence roomId={roomId} />
+
+      {/* Bottom dock */}
+      <AIStatusPill />
+      <ToolDock roomId={roomId} />
+
+      {/* Toasts */}
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          style: {
+            background: 'rgba(28, 24, 20, 0.9)',
+            border: '1px solid rgba(200, 188, 168, 0.15)',
+            color: '#E8E0D0',
+            fontFamily: 'DM Mono, monospace',
+            fontSize: '12px',
+            backdropFilter: 'blur(12px)',
+          }
+        }}
+      />
+    </>
   )
 }
 

@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useConnectionStatus } from '../hooks/useConnectionStatus'
 import { useEditor } from '../context/CanvasContext'
 import { wsClient } from '../lib/wsClient'
 import { toast } from 'sonner'
+import { WifiOff, RefreshCw } from 'lucide-react'
 
 export function ConnectionBanner() {
   const status = useConnectionStatus()
@@ -30,12 +32,50 @@ export function ConnectionBanner() {
     })
   }, [])
 
-  if (status === 'connected') return null
+  const isReconnecting = status === 'reconnecting'
+  const isDisconnected = status === 'disconnected'
+
   return (
-    <div className={`fixed top-0 left-0 right-0 p-2 text-center text-white z-50 ${
-      status === 'reconnecting' ? 'bg-amber-500' : 'bg-red-600'
-    }`}>
-      {status === 'reconnecting' ? 'Reconnecting...' : 'Connection lost. Canvas is read-only.'}
-    </div>
+    <AnimatePresence>
+      {(isReconnecting || isDisconnected) && (
+        <motion.div
+          key="banner"
+          initial={{ opacity: 0, y: -20, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -20, scale: 0.9 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+          style={{
+            position: 'fixed',
+            top: '72px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 60,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 16px',
+            borderRadius: '999px',
+            background: isReconnecting
+              ? 'rgba(251, 191, 36, 0.15)'
+              : 'rgba(239, 68, 68, 0.15)',
+            border: `1px solid ${isReconnecting ? 'rgba(251,191,36,0.3)' : 'rgba(239,68,68,0.3)'}`,
+            backdropFilter: 'blur(12px)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+          }}
+        >
+          {isReconnecting
+            ? <RefreshCw size={12} style={{ color: '#fbbf24', animation: 'spin 1s linear infinite' }} />
+            : <WifiOff size={12} style={{ color: '#ef4444' }} />
+          }
+          <span style={{
+            fontFamily: 'DM Mono, monospace',
+            fontSize: '12px',
+            color: isReconnecting ? '#fbbf24' : '#ef4444',
+          }}>
+            {isReconnecting ? 'Reconnecting...' : 'Connection lost — canvas is read-only'}
+          </span>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

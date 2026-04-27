@@ -38,7 +38,8 @@ export function useYjsBinding(roomId: string) {
 
   // Yjs → tldraw (handle removals explicitly)
   useEffect(() => {
-    const observer = (event: Y.YMapEvent<unknown>) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const observer = (event: Y.YMapEvent<any>) => {
       if (event.transaction.origin === 'local') return
       isApplyingRemote.current = true
       const removed = Array.from(event.keysChanged).filter(k => !yShapes.has(k)) as TLShapeId[]

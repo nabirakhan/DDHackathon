@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
+import { SoftAurora } from '../components/ui/SoftAurora'
+import { LogOut, Plus, ArrowRight, Clock } from 'lucide-react'
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL as string
 
@@ -16,6 +19,12 @@ interface RoomRow {
   }
 }
 
+const roleStyle: Record<string, { bg: string; color: string; label: string }> = {
+  lead: { bg: 'rgba(62, 89, 116, 0.3)', color: '#5B7A9E', label: 'Lead' },
+  contributor: { bg: 'rgba(184, 134, 11, 0.2)', color: '#D4A017', label: 'Contributor' },
+  viewer: { bg: 'rgba(139, 134, 128, 0.2)', color: '#8B8680', label: 'Viewer' },
+}
+
 export default function Home() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -23,6 +32,7 @@ export default function Home() {
   const [newRoomName, setNewRoomName] = useState('')
   const [creating, setCreating] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [createOpen, setCreateOpen] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -63,76 +73,245 @@ export default function Home() {
   const signOut = () => supabase.auth.signOut()
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">LIGMA</h1>
-          <p className="text-xs text-slate-500">Live Interactive Group Meeting Assistant</p>
+    <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#1A1814' }}>
+      {/* Background */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        <SoftAurora color1="#5D5646" color2="#3E5974" speed={0.2} brightness={0.45} bandSpread={0.4} enableMouseInteraction={false} />
+      </div>
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'rgba(26, 24, 20, 0.6)' }} />
+
+      {/* Top bar */}
+      <div style={{
+        position: 'relative',
+        zIndex: 10,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '16px 24px',
+        borderBottom: '1px solid rgba(200, 188, 168, 0.1)',
+        background: 'rgba(26, 24, 20, 0.5)',
+        backdropFilter: 'blur(12px)',
+      }}>
+        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '22px', fontWeight: 800, color: '#E8E0D0', letterSpacing: '-0.5px' }}>
+          LIGMA
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-slate-600">{user?.email}</span>
-          <button onClick={signOut} className="text-sm text-red-500 hover:text-red-700 transition-colors">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '12px', color: '#8B8680' }}>
+            {user?.email}
+          </span>
+          <button
+            onClick={signOut}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '6px 14px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              borderRadius: '999px',
+              color: '#ef4444',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '12px',
+              cursor: 'pointer',
+            }}
+          >
+            <LogOut size={12} />
             Sign out
           </button>
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-2xl mx-auto py-8 px-4">
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-          <h2 className="font-semibold text-slate-800 mb-4">Create a Room</h2>
-          <form onSubmit={createRoom} className="flex gap-3">
-            <input
-              type="text"
-              value={newRoomName}
-              onChange={e => setNewRoomName(e.target.value)}
-              placeholder="Room name..."
-              className="flex-1 border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
-            />
+      {/* Main content */}
+      <div style={{
+        position: 'relative',
+        zIndex: 2,
+        maxWidth: '680px',
+        margin: '0 auto',
+        padding: '40px 24px',
+        height: 'calc(100vh - 65px)',
+        overflowY: 'auto',
+      }}>
+        {/* Create Room */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          style={{
+            background: 'rgba(28, 24, 20, 0.65)',
+            backdropFilter: 'contrast(110%) blur(20px)',
+            border: '1px solid rgba(200, 188, 168, 0.15)',
+            borderRadius: '16px',
+            padding: '24px',
+            marginBottom: '24px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: createOpen ? '20px' : '0' }}>
+            <div>
+              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '16px', fontWeight: 700, color: '#E8E0D0' }}>
+                New Session
+              </div>
+              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '11px', color: '#8B8680', marginTop: '2px' }}>
+                Create a collaborative whiteboard room
+              </div>
+            </div>
             <button
-              type="submit"
-              disabled={creating || !newRoomName.trim()}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded text-sm font-medium transition-colors disabled:opacity-50"
+              onClick={() => setCreateOpen(v => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '8px 16px',
+                background: 'linear-gradient(135deg, #5D5646, #3E5974)',
+                border: '1px solid rgba(200, 188, 168, 0.2)',
+                borderRadius: '999px',
+                color: '#E8E0D0',
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
             >
-              {creating ? 'Creating...' : 'Create'}
+              <Plus size={14} />
+              {createOpen ? 'Cancel' : 'Create'}
             </button>
-          </form>
-        </div>
+          </div>
 
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h2 className="font-semibold text-slate-800 mb-4">Your Rooms</h2>
+          {createOpen && (
+            <motion.form
+              onSubmit={createRoom}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              style={{ display: 'flex', gap: '10px' }}
+            >
+              <input
+                type="text"
+                value={newRoomName}
+                onChange={e => setNewRoomName(e.target.value)}
+                placeholder="Room name..."
+                autoFocus
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(200, 188, 168, 0.15)',
+                  borderRadius: '8px',
+                  color: '#E8E0D0',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '14px',
+                  outline: 'none',
+                }}
+              />
+              <button
+                type="submit"
+                disabled={creating || !newRoomName.trim()}
+                style={{
+                  padding: '10px 20px',
+                  background: creating ? 'rgba(93, 86, 70, 0.4)' : 'rgba(93, 86, 70, 0.7)',
+                  border: '1px solid rgba(200, 188, 168, 0.2)',
+                  borderRadius: '8px',
+                  color: '#E8E0D0',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  cursor: creating ? 'not-allowed' : 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {creating ? 'Creating...' : 'Launch →'}
+              </button>
+            </motion.form>
+          )}
+        </motion.div>
+
+        {/* Rooms list */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          style={{
+            background: 'rgba(28, 24, 20, 0.65)',
+            backdropFilter: 'contrast(110%) blur(20px)',
+            border: '1px solid rgba(200, 188, 168, 0.15)',
+            borderRadius: '16px',
+            overflow: 'hidden',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+          }}
+        >
+          <div style={{
+            padding: '20px 24px 16px',
+            borderBottom: '1px solid rgba(200, 188, 168, 0.08)',
+          }}>
+            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '16px', fontWeight: 700, color: '#E8E0D0' }}>
+              Your Rooms
+            </div>
+          </div>
+
           {loading ? (
-            <p className="text-sm text-slate-400">Loading...</p>
+            <div style={{ padding: '32px', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '12px', color: '#8B8680' }}>
+                Loading...
+              </div>
+            </div>
           ) : rooms.length === 0 ? (
-            <p className="text-sm text-slate-400">No rooms yet. Create one above.</p>
+            <div style={{ padding: '40px', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '12px', color: '#8B8680' }}>
+                No rooms yet. Create one above.
+              </div>
+            </div>
           ) : (
-            <div className="space-y-2">
-              {rooms.map(r => (
-                <button
-                  key={r.room_id}
-                  onClick={() => navigate(`/room/${r.room_id}`)}
-                  className="block w-full text-left p-3 border rounded hover:bg-slate-50 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-slate-800">{r.rooms?.name}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      r.role === 'lead' ? 'bg-slate-800 text-white' :
-                      r.role === 'contributor' ? 'bg-blue-100 text-blue-700' :
-                      'bg-slate-100 text-slate-600'
-                    }`}>
-                      {r.role}
-                    </span>
-                  </div>
-                  {r.rooms?.created_at && (
-                    <div className="text-xs text-slate-400 mt-1">
-                      Created {new Date(r.rooms.created_at).toLocaleDateString()}
+            <div>
+              {rooms.map((r, i) => {
+                const rs = roleStyle[r.role] ?? roleStyle.viewer
+                return (
+                  <motion.button
+                    key={r.room_id}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 + 0.15 }}
+                    onClick={() => navigate(`/room/${r.room_id}`)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      width: '100%',
+                      padding: '16px 24px',
+                      background: 'transparent',
+                      border: 'none',
+                      borderBottom: i < rooms.length - 1 ? '1px solid rgba(200, 188, 168, 0.06)' : 'none',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'background 0.15s',
+                    }}
+                    whileHover={{ backgroundColor: 'rgba(255,255,255,0.04)' }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '15px', fontWeight: 500, color: '#E8E0D0', marginBottom: '4px' }}>
+                        {r.rooms?.name}
+                      </div>
+                      {r.rooms?.created_at && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'DM Mono, monospace', fontSize: '11px', color: '#8B8680' }}>
+                          <Clock size={10} />
+                          {new Date(r.rooms.created_at).toLocaleDateString()}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </button>
-              ))}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span style={{
+                        padding: '3px 10px',
+                        borderRadius: '999px',
+                        background: rs.bg,
+                        color: rs.color,
+                        fontFamily: 'DM Mono, monospace',
+                        fontSize: '11px',
+                        border: `1px solid ${rs.color}33`,
+                      }}>
+                        {rs.label}
+                      </span>
+                      <ArrowRight size={14} style={{ color: '#8B8680' }} />
+                    </div>
+                  </motion.button>
+                )
+              })}
             </div>
           )}
-        </div>
-      </main>
+        </motion.div>
+      </div>
     </div>
   )
 }
