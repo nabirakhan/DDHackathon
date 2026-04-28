@@ -16,7 +16,7 @@ const NON_DOCUMENT_TYPES = new Set([
 ])
 
 export function useYjsBinding(roomId: string) {
-  const { store, ydoc, yShapes } = useCanvas()
+  const { store, ydoc, yShapes, setRoomReady } = useCanvas()
   const isApplyingRemote = useRef(false)
   const metaQueue = useRef<PendingMeta[]>([])
 
@@ -109,9 +109,13 @@ export function useYjsBinding(roomId: string) {
         } catch (err) {
           console.error('[ws:inbound] room:joined applyUpdate threw:', err)
         }
+        // Render tldraw only after the server diff is applied so tldraw mounts
+        // into a store that already has the correct page ID — prevents the blank
+        // canvas caused by tldraw creating a fresh random page before the diff arrives.
+        setRoomReady(true)
       }
     })
-  }, [ydoc, yShapes])
+  }, [ydoc, yShapes, setRoomReady])
 
   useEffect(() => {
     const handler = (update: Uint8Array, origin: unknown) => {
