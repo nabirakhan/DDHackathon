@@ -23,9 +23,10 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }))
 
+// DEMO OVERRIDE — revert before production
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 10_000,
   standardHeaders: true,
   legacyHeaders: false,
 }))
