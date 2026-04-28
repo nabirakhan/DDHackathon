@@ -14,4 +14,15 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['yjs'],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          tldraw: ['tldraw'],
+          yjs: ['yjs'],
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+        },
+      },
+    },
+  },
 })
