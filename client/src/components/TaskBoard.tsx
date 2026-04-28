@@ -1,3 +1,4 @@
+// client/src/components/TaskBoard.tsx
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { wsClient } from '../lib/wsClient'
@@ -30,68 +31,58 @@ export function TaskBoard({ roomId }: { roomId: string }) {
   return (
     <div style={{
       position: 'fixed',
-      top: '72px',
+      top: '80px',
       right: '16px',
-      width: '240px',
-      maxHeight: collapsed ? '48px' : '480px',
-      background: 'rgba(28, 24, 20, 0.78)',
-      backdropFilter: 'contrast(110%) blur(20px)',
-      WebkitBackdropFilter: 'contrast(110%) blur(20px)',
-      border: '1px solid rgba(200, 188, 168, 0.15)',
-      borderRadius: '16px',
-      boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+      width: '252px',
+      maxHeight: collapsed ? '52px' : 'calc(100vh - 180px)',
+      background: 'rgba(17, 19, 21, 0.82)',
+      backdropFilter: 'contrast(115%) blur(28px)',
+      WebkitBackdropFilter: 'contrast(115%) blur(28px)',
+      border: '1px solid rgba(255, 255, 255, 0.07)',
+      borderRadius: '28px',
+      boxShadow: '0 24px 64px rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.04) inset',
       zIndex: 40,
       overflow: 'hidden',
-      transition: 'max-height 0.3s ease',
+      transition: 'max-height 0.35s cubic-bezier(0.16,1,0.3,1)',
     }}>
-      {/* Header */}
       <button
         onClick={() => setCollapsed(v => !v)}
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          width: '100%',
-          padding: '14px 16px',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          borderBottom: collapsed ? 'none' : '1px solid rgba(200, 188, 168, 0.08)',
+          display: 'flex', alignItems: 'center', gap: '8px',
+          width: '100%', padding: '16px 20px',
+          background: 'transparent', border: 'none', cursor: 'pointer',
+          borderBottom: collapsed ? 'none' : '1px solid rgba(255,255,255,0.05)',
         }}
       >
-        <ListTodo size={13} style={{ color: '#D4A017' }} />
-        <span style={{ fontFamily: 'Syne, sans-serif', fontSize: '12px', fontWeight: 700, color: '#C8BCA8', letterSpacing: '0.5px' }}>
-          Action Items
+        <ListTodo size={12} style={{ color: '#D4A017' }} />
+        <span style={{ fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 800, color: '#D4A017', letterSpacing: '2.5px', textTransform: 'uppercase' }}>
+          Pipeline
         </span>
         {tasks.length > 0 && (
           <span style={{
             marginLeft: 'auto',
-            padding: '1px 6px',
-            borderRadius: '999px',
-            background: 'rgba(184, 134, 11, 0.2)',
-            border: '1px solid rgba(184, 134, 11, 0.3)',
-            fontFamily: 'DM Mono, monospace',
-            fontSize: '9px',
-            color: '#D4A017',
+            padding: '2px 7px', borderRadius: '999px',
+            background: 'rgba(212, 160, 23, 0.15)',
+            border: '1px solid rgba(212, 160, 23, 0.3)',
+            fontFamily: 'DM Mono, monospace', fontSize: '9px', color: '#D4A017',
           }}>
             {tasks.length}
           </span>
         )}
-        <span style={{ marginLeft: tasks.length > 0 ? '0' : 'auto', color: '#8B8680', fontSize: '10px' }}>
+        <span style={{ marginLeft: tasks.length > 0 ? '0' : 'auto', color: '#8B8680', fontSize: '9px' }}>
           {collapsed ? '▼' : '▲'}
         </span>
       </button>
 
-      {/* Tasks */}
       {!collapsed && (
-        <div style={{ overflowY: 'auto', maxHeight: '432px', padding: '8px' }}>
+        <div className="custom-scrollbar" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 260px)', padding: '12px' }}>
           {tasks.length === 0 ? (
             <div style={{ padding: '20px 8px', textAlign: 'center' }}>
-              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '11px', color: '#8B8680' }}>
+              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '11px', color: '#8B8680', lineHeight: 1.6 }}>
                 No tasks yet.
               </div>
-              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '10px', color: '#8B8680', marginTop: '4px', opacity: 0.7 }}>
-                Add "we need to..." text
+              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '10px', color: 'rgba(139,134,128,0.5)', marginTop: '4px' }}>
+                Write "we need to..." on canvas
               </div>
             </div>
           ) : (
@@ -104,24 +95,22 @@ export function TaskBoard({ roomId }: { roomId: string }) {
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ delay: i * 0.03 }}
                   onClick={() => { editor?.select(t.source_node_id as TLShapeId); editor?.zoomToSelection() }}
-                  whileHover={{ scale: 1.01, backgroundColor: 'rgba(255,255,255,0.04)' }}
                   style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '10px 12px',
-                    marginBottom: '6px',
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(200, 188, 168, 0.1)',
-                    borderBottom: '2px solid rgba(184, 134, 11, 0.3)',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    textAlign: 'left',
+                    display: 'block', width: '100%',
+                    padding: '12px 14px', marginBottom: '8px',
+                    background: 'rgba(248, 246, 242, 0.06)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderLeft: '3px solid rgba(212, 160, 23, 0.5)',
+                    borderRadius: '14px',
+                    cursor: 'pointer', textAlign: 'left',
+                    transition: 'background 0.2s ease, border-color 0.2s ease',
                   }}
+                  whileHover={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
                 >
-                  <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', color: '#E8E0D0', lineHeight: 1.4 }}>
+                  <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', fontWeight: 500, color: '#E8E0D0', lineHeight: 1.5 }}>
                     {t.text}
                   </div>
-                  <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '10px', color: '#8B8680', marginTop: '6px' }}>
+                  <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', color: '#8B8680', marginTop: '6px' }}>
                     {new Date(t.created_at).toLocaleTimeString()}
                   </div>
                 </motion.button>

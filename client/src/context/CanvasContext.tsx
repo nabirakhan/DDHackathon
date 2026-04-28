@@ -21,7 +21,19 @@ export function CanvasProvider({ children }: { children: ReactNode }) {
 
   return (
     <CanvasContext.Provider value={{ editor, store, ydoc, yShapes }}>
-      <Tldraw store={store} onMount={setEditor} />
+      <div style={{
+        position: 'fixed',
+        top: '80px',
+        left: '284px',
+        right: '284px',
+        bottom: '96px',
+        borderRadius: '2.5rem',
+        overflow: 'hidden',
+        boxShadow: '0 0 0 1px rgba(0,0,0,0.45), 0 40px 100px rgba(0,0,0,0.55)',
+        zIndex: 1,
+      }}>
+        <Tldraw store={store} onMount={setEditor} />
+      </div>
       {children}
     </CanvasContext.Provider>
   )

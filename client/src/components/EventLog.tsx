@@ -50,53 +50,45 @@ export function EventLog({ roomId: _roomId }: { roomId: string }) {
   return (
     <div style={{
       position: 'fixed',
-      top: '72px',
+      top: '80px',
       left: '16px',
-      width: '220px',
-      maxHeight: collapsed ? '48px' : '420px',
-      background: 'rgba(28, 24, 20, 0.78)',
-      backdropFilter: 'contrast(110%) blur(20px)',
-      WebkitBackdropFilter: 'contrast(110%) blur(20px)',
-      border: '1px solid rgba(200, 188, 168, 0.15)',
-      borderRadius: '16px',
-      boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+      width: '252px',
+      maxHeight: collapsed ? '52px' : 'calc(100vh - 180px)',
+      background: 'rgba(17, 19, 21, 0.82)',
+      backdropFilter: 'contrast(115%) blur(28px)',
+      WebkitBackdropFilter: 'contrast(115%) blur(28px)',
+      border: '1px solid rgba(255, 255, 255, 0.07)',
+      borderRadius: '28px',
+      boxShadow: '0 24px 64px rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.04) inset',
       zIndex: 40,
       overflow: 'hidden',
-      transition: 'max-height 0.3s ease',
+      transition: 'max-height 0.35s cubic-bezier(0.16,1,0.3,1)',
     }}>
       <button
         onClick={() => setCollapsed(v => !v)}
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          width: '100%',
-          padding: '14px 16px',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          borderBottom: collapsed ? 'none' : '1px solid rgba(200, 188, 168, 0.08)',
+          display: 'flex', alignItems: 'center', gap: '8px',
+          width: '100%', padding: '16px 20px',
+          background: 'transparent', border: 'none', cursor: 'pointer',
+          borderBottom: collapsed ? 'none' : '1px solid rgba(255,255,255,0.05)',
         }}
       >
-        <Activity size={13} style={{ color: '#8B8680' }} />
-        <span style={{ fontFamily: 'Syne, sans-serif', fontSize: '12px', fontWeight: 700, color: '#C8BCA8', letterSpacing: '0.5px' }}>
-          Event Log
+        <Activity size={12} style={{ color: '#A07D54' }} />
+        <span style={{ fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 800, color: '#A07D54', letterSpacing: '2.5px', textTransform: 'uppercase' }}>
+          Intelligence
         </span>
         {events.length > 0 && (
           <span style={{
             marginLeft: 'auto',
-            padding: '1px 6px',
-            borderRadius: '999px',
-            background: 'rgba(184, 134, 11, 0.2)',
-            border: '1px solid rgba(184, 134, 11, 0.3)',
-            fontFamily: 'DM Mono, monospace',
-            fontSize: '9px',
-            color: '#D4A017',
+            padding: '2px 7px', borderRadius: '999px',
+            background: 'rgba(160, 125, 84, 0.18)',
+            border: '1px solid rgba(160, 125, 84, 0.3)',
+            fontFamily: 'DM Mono, monospace', fontSize: '9px', color: '#A07D54',
           }}>
             {events.length}
           </span>
         )}
-        <span style={{ marginLeft: events.length > 0 ? '0' : 'auto', color: '#8B8680', fontSize: '10px' }}>
+        <span style={{ marginLeft: events.length > 0 ? '0' : 'auto', color: '#8B8680', fontSize: '9px' }}>
           {collapsed ? '▼' : '▲'}
         </span>
       </button>
@@ -104,11 +96,12 @@ export function EventLog({ roomId: _roomId }: { roomId: string }) {
       {!collapsed && (
         <div
           ref={listRef}
-          style={{ overflowY: 'auto', maxHeight: '372px', padding: '8px 0' }}
+          className="custom-scrollbar"
+          style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 260px)', padding: '8px 0' }}
         >
           {events.length === 0 ? (
-            <div style={{ padding: '16px', fontFamily: 'DM Mono, monospace', fontSize: '11px', color: '#8B8680', textAlign: 'center' }}>
-              No events yet.
+            <div style={{ padding: '24px 20px', fontFamily: 'DM Mono, monospace', fontSize: '11px', color: '#8B8680', textAlign: 'center', lineHeight: 1.6 }}>
+              Awaiting activity...
             </div>
           ) : (
             <AnimatePresence initial={false}>
@@ -122,26 +115,28 @@ export function EventLog({ roomId: _roomId }: { roomId: string }) {
                     animate={{ opacity: 1, x: 0, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.2 }}
-                    style={{ padding: '6px 16px', borderBottom: '1px solid rgba(200, 188, 168, 0.04)' }}
+                    style={{
+                      padding: '8px 20px',
+                      borderLeft: `2px solid ${color}40`,
+                      marginLeft: '12px',
+                      marginBottom: '4px',
+                    }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{
-                        display: 'inline-block',
-                        width: '6px', height: '6px',
-                        borderRadius: '50%',
-                        background: color,
-                        flexShrink: 0,
+                        display: 'inline-block', width: '5px', height: '5px',
+                        borderRadius: '50%', background: color, flexShrink: 0,
                       }} />
                       <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '11px', color, fontWeight: 500 }}>
                         {label}
                       </span>
                       {e.node_id && (
-                        <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '10px', color: '#8B8680' }}>
+                        <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '10px', color: 'rgba(139,134,128,0.6)' }}>
                           #{e.node_id.slice(0, 6)}
                         </span>
                       )}
                     </div>
-                    <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '10px', color: '#8B8680', marginTop: '1px', paddingLeft: '12px' }}>
+                    <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', color: '#8B8680', marginTop: '2px', paddingLeft: '11px' }}>
                       {new Date(e.timestamp).toLocaleTimeString()}
                     </div>
                   </motion.div>
