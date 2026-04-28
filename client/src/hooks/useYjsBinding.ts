@@ -7,6 +7,22 @@ import { wsClient } from '../lib/wsClient'
 
 interface PendingMeta { nodeId: string; textSnapshot?: string }
 
+// Extract plain text from a TipTap/ProseMirror JSON node (tldraw v3 richText format).
+function extractRichText(node: unknown): string {
+  if (!node || typeof node !== 'object') return ''
+  const n = node as { type?: string; text?: string; content?: unknown[] }
+  if (n.type === 'text') return n.text ?? ''
+  return (n.content ?? []).map(extractRichText).join('')
+}
+
+function extractShapeText(shape: unknown): string | undefined {
+  const props = (shape as { props?: Record<string, unknown> })?.props
+  if (!props) return undefined
+  if (typeof props.text === 'string' && props.text.trim()) return props.text.trim()
+  if (props.richText) return extractRichText(props.richText).trim() || undefined
+  return undefined
+}
+
 const NON_DOCUMENT_TYPES = new Set([
   'pointer',
   'instance',
@@ -40,7 +56,7 @@ export function useYjsBinding(roomId: string) {
           continue
         }
 
-        const text = ((shape as { props?: { text?: string } })?.props?.text)
+        const text = extractShapeText(shape)
         metaQueue.current.push({ nodeId: id, textSnapshot: text })
         ydoc.transact(() => {
           if (kind === 'remove') yShapes.delete(id)

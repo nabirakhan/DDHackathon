@@ -1,14 +1,14 @@
-import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createHash } from 'crypto'
 import type { IntentType } from '@shared/types'
 import { checkRateLimit } from '../middleware/rateLimiter.js'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '')
+const geminiModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+
 const cache = new Map<string, IntentType>()
 
-const SYSTEM_PROMPT = `Classify the following short text from a brainstorming whiteboard into exactly one category. Respond with ONLY the category name, no explanation.
+const PROMPT_PREFIX = `Classify the following short text from a brainstorming whiteboard into exactly one category. Respond with ONLY the category name, nothing else.
 
 Categories:
 - action_item: a task to be done, an assignment, something requiring follow-up
@@ -29,26 +29,6 @@ function normalizeIntent(raw: string): IntentType {
   return VALID.find(v => lower.includes(v)) ?? 'reference'
 }
 
-async function classifyWithClaude(text: string): Promise<IntentType> {
-  const res = await anthropic.messages.create({
-    model: 'claude-haiku-4-5',
-    max_tokens: 20,
-    messages: [{ role: 'user', content: SYSTEM_PROMPT + text }],
-  })
-  const block = res.content[0]
-  if (block.type !== 'text') return 'reference'
-  return normalizeIntent(block.text)
-}
-
-async function classifyWithOpenAI(text: string): Promise<IntentType> {
-  const res = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    max_tokens: 20,
-    messages: [{ role: 'user', content: SYSTEM_PROMPT + text }],
-  })
-  return normalizeIntent(res.choices[0].message.content ?? 'reference')
-}
-
 function classifyHeuristic(text: string): IntentType {
   const lower = text.toLowerCase().trim()
   if (['?', 'how might', 'what if', 'should we', 'do we', 'is it', 'can we', 'why is', 'how do', 'are we']
@@ -61,32 +41,44 @@ function classifyHeuristic(text: string): IntentType {
   return 'reference'
 }
 
+async function classifyWithGemini(text: string): Promise<IntentType> {
+  const result = await geminiModel.generateContent(PROMPT_PREFIX + text)
+  const raw = result.response.text()
+  return normalizeIntent(raw)
+}
+
 export async function classify(userId: string, text: string): Promise<IntentType> {
   const key = hash(text)
   const cached = cache.get(key)
-  if (cached) return cached
+  if (cached) {
+    console.log(`[task:classify] cache hit key=${key} result=${cached}`)
+    return cached
+  }
 
   if (!checkRateLimit(userId)) {
+    console.log(`[task:classify] rate-limited userId=${userId} — using heuristic`)
+    const result = classifyHeuristic(text)
+    cache.set(key, result)
+    return result
+  }
+
+  if (!process.env.GEMINI_API_KEY) {
+    console.log('[task:classify] GEMINI_API_KEY not set — using heuristic')
     const result = classifyHeuristic(text)
     cache.set(key, result)
     return result
   }
 
   try {
-    const result = await classifyWithClaude(text)
+    console.log(`[task:classify] calling Gemini for text="${text.slice(0, 60)}"`)
+    const result = await classifyWithGemini(text)
+    console.log(`[task:classify] Gemini result="${result}"`)
     cache.set(key, result)
     return result
-  } catch (anthropicErr) {
-    console.warn('Anthropic API failed, falling back to OpenAI', anthropicErr)
-    try {
-      const result = await classifyWithOpenAI(text)
-      cache.set(key, result)
-      return result
-    } catch (openaiErr) {
-      console.warn('OpenAI API failed, falling back to heuristic', openaiErr)
-      const result = classifyHeuristic(text)
-      cache.set(key, result)
-      return result
-    }
+  } catch (err) {
+    console.warn('[task:classify] Gemini failed — falling back to heuristic:', (err as Error).message)
+    const result = classifyHeuristic(text)
+    cache.set(key, result)
+    return result
   }
 }

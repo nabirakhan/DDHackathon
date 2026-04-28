@@ -266,10 +266,12 @@ export async function applyMutation(
 
   const { data: event } = await writeEvent(roomId, fromSocket.userId, 'node:updated', nodeId, { textSnapshot })
 
-  if (event && textSnapshot) {
-    scheduleTask(roomId, nodeId, fromSocket.userId)
-    recordEdit(roomId, nodeId, fromSocket.userId, textSnapshot, room.editWindows)
-  }
+  // Always schedule task extraction — taskExtractor reads text fresh from yShapes,
+  // so it works even when the client sends no textSnapshot (e.g. richText shapes).
+  // recordEdit still requires textSnapshot for the contested-node window.
+  console.log(`[task:trigger] mutation nodeId=${nodeId} textSnapshot="${textSnapshot?.slice(0, 60) ?? '(none)'}"`)
+  if (event) scheduleTask(roomId, nodeId, fromSocket.userId)
+  if (event && textSnapshot) recordEdit(roomId, nodeId, fromSocket.userId, textSnapshot, room.editWindows)
 
   scheduleSnapshot(roomId, room.doc)
   console.log('[mutation] broadcasting to room', roomId, '(except sender)')
