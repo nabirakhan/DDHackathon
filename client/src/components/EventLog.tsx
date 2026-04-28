@@ -2,26 +2,24 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { wsClient } from '../lib/wsClient'
-import { Activity } from 'lucide-react'
 
 interface EventRow {
   id: number
   event_type: string
-  user_id: string
   node_id: string | null
   timestamp: string
 }
 
 const typeColor: Record<string, string> = {
-  'node:updated': '#8B8680',
-  'decision:locked': '#5B7A9E',
-  'task:created': '#D4A017',
+  'node:updated':    '#84A98C',
+  'decision:locked': '#52796F',
+  'task:created':    '#CAD2C5',
 }
 
 const typeLabel: Record<string, string> = {
-  'node:updated': 'edit',
+  'node:updated':    'edit',
   'decision:locked': 'locked',
-  'task:created': 'task',
+  'task:created':    'task',
 }
 
 export function EventLog({ roomId: _roomId }: { roomId: string }) {
@@ -31,82 +29,59 @@ export function EventLog({ roomId: _roomId }: { roomId: string }) {
 
   useEffect(() => {
     return wsClient.on((msg) => {
-      const add = (type: string, nodeId: string | null = null, userId = '') => {
-        setEvents(e => [{
-          id: Date.now() + Math.random(),
-          event_type: type,
-          user_id: userId,
-          node_id: nodeId,
-          timestamp: new Date().toISOString()
-        }, ...e].slice(0, 100))
+      const add = (type: string, nodeId: string | null = null) => {
+        setEvents(e => [{ id: Date.now() + Math.random(), event_type: type, node_id: nodeId, timestamp: new Date().toISOString() }, ...e].slice(0, 100))
       }
-
       if (msg.type === 'mutation:broadcast') add('node:updated', msg.payload.nodeId)
       if (msg.type === 'node:decision_locked') add('decision:locked', msg.payload.nodeId)
-      if (msg.type === 'task:created') add('task:created', msg.payload.task.source_node_id, msg.payload.task.author_id)
+      if (msg.type === 'task:created') add('task:created', msg.payload.task.source_node_id)
     })
   }, [])
 
   return (
     <div style={{
-      position: 'fixed',
-      top: '80px',
-      left: '16px',
-      width: '252px',
-      maxHeight: collapsed ? '52px' : 'calc(100vh - 180px)',
-      background: 'rgba(17, 19, 21, 0.82)',
-      backdropFilter: 'contrast(115%) blur(28px)',
-      WebkitBackdropFilter: 'contrast(115%) blur(28px)',
-      border: '1px solid rgba(255, 255, 255, 0.07)',
-      borderRadius: '28px',
-      boxShadow: '0 24px 64px rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.04) inset',
-      zIndex: 40,
+      width: '264px',
+      flexShrink: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      background: 'rgba(47, 62, 70, 0.65)',
+      backdropFilter: 'blur(40px) saturate(150%)',
+      WebkitBackdropFilter: 'blur(40px) saturate(150%)',
+      border: '1px solid rgba(202, 210, 197, 0.08)',
+      borderRadius: '2rem',
+      boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
       overflow: 'hidden',
-      transition: 'max-height 0.35s cubic-bezier(0.16,1,0.3,1)',
     }}>
       <button
         onClick={() => setCollapsed(v => !v)}
         style={{
           display: 'flex', alignItems: 'center', gap: '8px',
-          width: '100%', padding: '16px 20px',
-          background: 'transparent', border: 'none', cursor: 'pointer',
-          borderBottom: collapsed ? 'none' : '1px solid rgba(255,255,255,0.05)',
+          padding: '16px 20px', background: 'transparent', border: 'none', cursor: 'pointer',
+          borderBottom: '1px solid rgba(202,210,197,0.06)', flexShrink: 0,
         }}
       >
-        <Activity size={12} style={{ color: '#A07D54' }} />
-        <span style={{ fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 800, color: '#A07D54', letterSpacing: '2.5px', textTransform: 'uppercase' }}>
+        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#84A98C', display: 'inline-block', animation: 'spin-slow 4s linear infinite' }} />
+        <span style={{ fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 800, color: '#84A98C', letterSpacing: '2.5px', textTransform: 'uppercase' }}>
           Intelligence
         </span>
         {events.length > 0 && (
-          <span style={{
-            marginLeft: 'auto',
-            padding: '2px 7px', borderRadius: '999px',
-            background: 'rgba(160, 125, 84, 0.18)',
-            border: '1px solid rgba(160, 125, 84, 0.3)',
-            fontFamily: 'DM Mono, monospace', fontSize: '9px', color: '#A07D54',
-          }}>
+          <span style={{ padding: '1px 6px', borderRadius: '999px', background: 'rgba(132,169,140,0.15)', border: '1px solid rgba(132,169,140,0.25)', fontFamily: 'Inter, sans-serif', fontSize: '9px', fontWeight: 600, color: '#84A98C' }}>
             {events.length}
           </span>
         )}
-        <span style={{ marginLeft: events.length > 0 ? '0' : 'auto', color: '#8B8680', fontSize: '9px' }}>
-          {collapsed ? '▼' : '▲'}
-        </span>
+        <span style={{ marginLeft: 'auto', color: 'rgba(202,210,197,0.3)', fontSize: '9px' }}>{collapsed ? '▼' : '▲'}</span>
       </button>
 
       {!collapsed && (
-        <div
-          ref={listRef}
-          className="custom-scrollbar"
-          style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 260px)', padding: '8px 0' }}
-        >
+        <div ref={listRef} className="custom-scrollbar" style={{ overflowY: 'auto', flex: 1, padding: '8px 0' }}>
           {events.length === 0 ? (
-            <div style={{ padding: '24px 20px', fontFamily: 'DM Mono, monospace', fontSize: '11px', color: '#8B8680', textAlign: 'center', lineHeight: 1.6 }}>
+            <div style={{ padding: '28px 20px', fontFamily: 'Inter, sans-serif', fontSize: '11px', color: 'rgba(202,210,197,0.3)', textAlign: 'center', lineHeight: 1.6 }}>
               Awaiting activity...
             </div>
           ) : (
             <AnimatePresence initial={false}>
               {events.map(e => {
-                const color = typeColor[e.event_type] ?? '#8B8680'
+                const color = typeColor[e.event_type] ?? '#84A98C'
                 const label = typeLabel[e.event_type] ?? e.event_type
                 return (
                   <motion.div
@@ -114,29 +89,21 @@ export function EventLog({ roomId: _roomId }: { roomId: string }) {
                     initial={{ opacity: 0, x: -8, height: 0 }}
                     animate={{ opacity: 1, x: 0, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.2 }}
-                    style={{
-                      padding: '8px 20px',
-                      borderLeft: `2px solid ${color}40`,
-                      marginLeft: '12px',
-                      marginBottom: '4px',
-                    }}
+                    transition={{ duration: 0.18 }}
+                    style={{ padding: '8px 16px 8px 20px', borderBottom: '1px solid rgba(202,210,197,0.04)' }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{
-                        display: 'inline-block', width: '5px', height: '5px',
-                        borderRadius: '50%', background: color, flexShrink: 0,
-                      }} />
-                      <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '11px', color, fontWeight: 500 }}>
+                      <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: color, flexShrink: 0 }} />
+                      <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', fontWeight: 600, color }}>
                         {label}
                       </span>
                       {e.node_id && (
-                        <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '10px', color: 'rgba(139,134,128,0.6)' }}>
+                        <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', color: 'rgba(202,210,197,0.3)' }}>
                           #{e.node_id.slice(0, 6)}
                         </span>
                       )}
                     </div>
-                    <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', color: '#8B8680', marginTop: '2px', paddingLeft: '11px' }}>
+                    <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', color: 'rgba(202,210,197,0.25)', marginTop: '2px', paddingLeft: '10px' }}>
                       {new Date(e.timestamp).toLocaleTimeString()}
                     </div>
                   </motion.div>

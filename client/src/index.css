@@ -2,49 +2,35 @@
 @import "tailwindcss";
 
 :root {
-  --bone: #E8E0D0;
-  --linen: #EEEAE2;
-  --stone: #C8BCA8;
-  --parchment: #F5F0E8;
-  --bronze: #A07D54;
-  --bronze-warm: #B8860B;
-  --bronze-light: #D4A017;
-  --olive: #5D5646;
-  --olive-light: #7A7260;
-  --slate: #3E5974;
-  --slate-light: #5B7A9E;
-  --ash: #8B8680;
-  --charcoal: #1A1C1E;
-  --deep-stone: #2C2820;
-  --ink: #1A1814;
+  --mist:   #CAD2C5;
+  --sage:   #84A98C;
+  --teal:   #52796F;
+  --deep:   #354F52;
+  --forest: #2F3E46;
+  --shell:  #141f1f;
 
-  --bg-base: var(--charcoal);
-  --bg-surface: rgba(255, 255, 255, 0.06);
-  --bg-glass: rgba(255, 255, 255, 0.08);
-  --bg-glass-hover: rgba(255, 255, 255, 0.12);
-  --border-subtle: rgba(200, 188, 168, 0.15);
-  --border-medium: rgba(200, 188, 168, 0.25);
-  --text-primary: var(--bone);
-  --text-secondary: var(--stone);
-  --text-muted: var(--ash);
+  --glass-bg: rgba(47, 62, 70, 0.70);
+  --glass-blur: blur(40px);
+  --glass-saturate: saturate(160%);
+  --border-subtle: rgba(202, 210, 197, 0.10);
+  --border-medium: rgba(202, 210, 197, 0.20);
+  --text-primary: #CAD2C5;
+  --text-secondary: rgba(202, 210, 197, 0.60);
+  --text-muted: rgba(202, 210, 197, 0.35);
 
-  --glass-blur: blur(20px);
-  --glass-contrast: contrast(110%);
-  --glass-bg: rgba(26, 28, 30, 0.65);
+  --shadow-panel: 0 24px 64px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.04) inset;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-2xl: 32px;
+  --radius-pill: 999px;
 
   --font-display: 'Syne', sans-serif;
   --font-body: 'Inter', sans-serif;
   --font-mono: 'DM Mono', monospace;
-
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-pill: 999px;
-
-  --shadow-sm: 0 2px 8px rgba(93, 86, 70, 0.25);
-  --shadow-md: 0 8px 32px rgba(93, 86, 70, 0.3);
-  --shadow-lg: 0 16px 48px rgba(93, 86, 70, 0.35);
-  --shadow-panel: 0 8px 32px rgba(26, 28, 30, 0.5), 0 1px 0 rgba(255,255,255,0.04) inset;
 }
 
 *, *::before, *::after {
@@ -61,7 +47,7 @@ html, body, #root {
 
 body {
   font-family: var(--font-body);
-  background: var(--ink);
+  background: var(--shell);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -69,76 +55,30 @@ body {
 
 .glass {
   background: var(--glass-bg);
-  backdrop-filter: var(--glass-contrast) var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-contrast) var(--glass-blur);
-  border: 1px solid var(--border-subtle);
-}
-
-.glass-light {
-  background: rgba(232, 224, 208, 0.06);
-  backdrop-filter: contrast(105%) blur(16px);
-  -webkit-backdrop-filter: contrast(105%) blur(16px);
+  backdrop-filter: var(--glass-blur) var(--glass-saturate);
+  -webkit-backdrop-filter: var(--glass-blur) var(--glass-saturate);
   border: 1px solid var(--border-subtle);
 }
 
 .ironside-panel {
-  background: rgba(26, 28, 30, 0.7);
-  backdrop-filter: contrast(112%) blur(24px);
-  -webkit-backdrop-filter: contrast(112%) blur(24px);
-  border: 1px solid rgba(200, 188, 168, 0.13);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-panel);
-  transition: border-color 0.5s ease, background 0.5s ease;
-}
-
-.ironside-panel:hover {
-  border-color: rgba(200, 188, 168, 0.2);
-}
-
-.canvas-grid {
-  background-color: var(--linen);
-  background-image: radial-gradient(circle, rgba(93, 86, 70, 0.35) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
-
-.glow-bronze {
-  box-shadow: 0 0 12px rgba(160, 125, 84, 0.4), 0 0 32px rgba(160, 125, 84, 0.15);
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(160, 125, 84, 0.35);
-  border-radius: 4px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(160, 125, 84, 0.55);
-}
-
-.floating-panel {
-  position: fixed;
-  border-radius: var(--radius-lg);
+  background: rgba(47, 62, 70, 0.70);
+  backdrop-filter: blur(40px) saturate(150%);
+  -webkit-backdrop-filter: blur(40px) saturate(150%);
+  border: 1px solid rgba(202, 210, 197, 0.08);
+  border-radius: var(--radius-2xl);
   box-shadow: var(--shadow-panel);
 }
 
-.state-crossfade {
-  transition: color 0.5s ease, background 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
-}
+.custom-scrollbar::-webkit-scrollbar { width: 3px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(132, 169, 140, 0.3); border-radius: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(132, 169, 140, 0.5); }
 
-::-webkit-scrollbar {
-  width: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border-medium);
-  border-radius: 4px;
-}
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-medium); border-radius: 4px; }
+
+.tl-canvas { background: #F0F4F2 !important; }
 
 @keyframes shimmer {
   0% { background-position: -200% center; }
@@ -169,28 +109,17 @@ body {
 }
 
 @keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(212, 160, 23, 0.4) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(132,169,140,0.35) 50%, transparent 100%);
   background-size: 200% auto;
   animation: shimmer 2s linear infinite;
 }
 
-.animate-spin-slow {
-  animation: spin-slow 8s linear infinite;
-}
-
-.animate-vibrate {
-  animation: vibrate 0.4s ease-in-out infinite;
-}
-
-.animate-ink-drop {
-  animation: ink-drop 0.25s ease-out both;
-}
-
-.animate-fade-in-up {
-  animation: fade-in-up 0.5s ease-out both;
-}
+.animate-spin-slow { animation: spin-slow 8s linear infinite; }
+.animate-vibrate { animation: vibrate 0.4s ease-in-out infinite; }
+.animate-ink-drop { animation: ink-drop 0.25s ease-out both; }
+.animate-fade-in-up { animation: fade-in-up 0.4s ease-out both; }

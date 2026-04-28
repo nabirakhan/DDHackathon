@@ -1,3 +1,5 @@
+/* client/src/components/ui/Dock.css */
+
 .dock-outer {
   position: relative;
   display: flex;
@@ -7,64 +9,48 @@
 .dock-panel {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
+  gap: 6px;
   padding: 8px 14px;
   border-radius: 999px;
-  background: rgba(26, 28, 30, 0.8);
-  backdrop-filter: contrast(112%) blur(24px);
-  -webkit-backdrop-filter: contrast(112%) blur(24px);
-  border: 1px solid rgba(200, 188, 168, 0.14);
-  box-shadow: 0 8px 32px rgba(93, 86, 70, 0.3), 0 1px 0 rgba(255,255,255,0.05) inset;
+  background: rgba(47, 62, 70, 0.85);
+  backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  border: 1px solid rgba(202, 210, 197, 0.10);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.04) inset;
   position: relative;
   overflow: hidden;
   transition: border-color 0.5s ease, box-shadow 0.5s ease;
 }
 
-/* Resting bronze shimmer line */
 .dock-panel::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 0; left: 0; right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(160, 125, 84, 0.5) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(132,169,140,0.5) 50%, transparent 100%);
   background-size: 200% auto;
   animation: shimmer 4s linear infinite;
   z-index: 1;
 }
 
-/* AI active sweep — full-panel bright sweep */
 .dock-panel.ai-active::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(212, 160, 23, 0.12) 40%,
-    rgba(212, 160, 23, 0.22) 50%,
-    rgba(212, 160, 23, 0.12) 60%,
-    transparent 100%
-  );
+  background: linear-gradient(90deg, transparent 0%, rgba(82,121,111,0.15) 40%, rgba(82,121,111,0.25) 50%, rgba(82,121,111,0.15) 60%, transparent 100%);
   background-size: 200% auto;
-  animation: ai-sweep 1.4s linear infinite;
+  animation: shimmer 1.4s linear infinite;
   border-radius: inherit;
   pointer-events: none;
   z-index: 0;
 }
 
 .dock-panel.ai-active {
-  border-color: rgba(160, 125, 84, 0.4);
-  box-shadow: 0 8px 32px rgba(93, 86, 70, 0.3), 0 0 20px rgba(160, 125, 84, 0.2), 0 1px 0 rgba(255,255,255,0.05) inset;
+  border-color: rgba(132,169,140,0.35);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.45), 0 0 20px rgba(82,121,111,0.2), 0 1px 0 rgba(255,255,255,0.04) inset;
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
-}
-
-@keyframes ai-sweep {
   0% { background-position: -200% center; }
   100% { background-position: 200% center; }
 }
@@ -91,32 +77,32 @@
 
 .dock-label {
   white-space: nowrap;
-  padding: 4px 9px;
+  padding: 3px 9px;
   border-radius: 6px;
-  background: rgba(26, 28, 30, 0.92);
-  border: 1px solid rgba(200, 188, 168, 0.18);
+  background: rgba(47, 62, 70, 0.95);
+  border: 1px solid rgba(202, 210, 197, 0.12);
   font-family: 'Syne', sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.5px;
-  color: #C8BCA8;
+  color: #CAD2C5;
   backdrop-filter: blur(8px);
-  box-shadow: 0 2px 8px rgba(93, 86, 70, 0.3);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
 .dock-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 13px;
-  background: rgba(93, 86, 70, 0.28);
-  border: 1px solid rgba(200, 188, 168, 0.1);
+  border-radius: 12px;
+  background: rgba(53, 79, 82, 0.45);
+  border: 1px solid rgba(202, 210, 197, 0.08);
   transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-  color: #C8BCA8;
+  color: rgba(202, 210, 197, 0.65);
 }
 
 .dock-icon:hover {
-  background: rgba(93, 86, 70, 0.5);
-  border-color: rgba(160, 125, 84, 0.3);
-  color: #E8E0D0;
+  background: rgba(82, 121, 111, 0.55);
+  border-color: rgba(132, 169, 140, 0.3);
+  color: #CAD2C5;
 }

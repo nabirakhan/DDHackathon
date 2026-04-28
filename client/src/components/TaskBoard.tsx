@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { wsClient } from '../lib/wsClient'
 import { useEditor } from '../context/CanvasContext'
 import type { TLShapeId } from 'tldraw'
-import { ListTodo } from 'lucide-react'
 
 interface Task {
   id: string
@@ -30,58 +29,45 @@ export function TaskBoard({ roomId }: { roomId: string }) {
 
   return (
     <div style={{
-      position: 'fixed',
-      top: '80px',
-      right: '16px',
-      width: '252px',
-      maxHeight: collapsed ? '52px' : 'calc(100vh - 180px)',
-      background: 'rgba(17, 19, 21, 0.82)',
-      backdropFilter: 'contrast(115%) blur(28px)',
-      WebkitBackdropFilter: 'contrast(115%) blur(28px)',
-      border: '1px solid rgba(255, 255, 255, 0.07)',
-      borderRadius: '28px',
-      boxShadow: '0 24px 64px rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.04) inset',
-      zIndex: 40,
+      width: '264px',
+      flexShrink: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      background: 'rgba(47, 62, 70, 0.65)',
+      backdropFilter: 'blur(40px) saturate(150%)',
+      WebkitBackdropFilter: 'blur(40px) saturate(150%)',
+      border: '1px solid rgba(202, 210, 197, 0.08)',
+      borderRadius: '2rem',
+      boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
       overflow: 'hidden',
-      transition: 'max-height 0.35s cubic-bezier(0.16,1,0.3,1)',
     }}>
       <button
         onClick={() => setCollapsed(v => !v)}
         style={{
           display: 'flex', alignItems: 'center', gap: '8px',
-          width: '100%', padding: '16px 20px',
-          background: 'transparent', border: 'none', cursor: 'pointer',
-          borderBottom: collapsed ? 'none' : '1px solid rgba(255,255,255,0.05)',
+          padding: '16px 20px', background: 'transparent', border: 'none', cursor: 'pointer',
+          borderBottom: '1px solid rgba(202,210,197,0.06)', flexShrink: 0,
         }}
       >
-        <ListTodo size={12} style={{ color: '#D4A017' }} />
-        <span style={{ fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 800, color: '#D4A017', letterSpacing: '2.5px', textTransform: 'uppercase' }}>
+        <span style={{ fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 800, color: '#84A98C', letterSpacing: '2.5px', textTransform: 'uppercase' }}>
           Pipeline
         </span>
         {tasks.length > 0 && (
-          <span style={{
-            marginLeft: 'auto',
-            padding: '2px 7px', borderRadius: '999px',
-            background: 'rgba(212, 160, 23, 0.15)',
-            border: '1px solid rgba(212, 160, 23, 0.3)',
-            fontFamily: 'DM Mono, monospace', fontSize: '9px', color: '#D4A017',
-          }}>
+          <span style={{ padding: '1px 6px', borderRadius: '999px', background: 'rgba(132,169,140,0.15)', border: '1px solid rgba(132,169,140,0.25)', fontFamily: 'Inter, sans-serif', fontSize: '9px', fontWeight: 600, color: '#84A98C' }}>
             {tasks.length}
           </span>
         )}
-        <span style={{ marginLeft: tasks.length > 0 ? '0' : 'auto', color: '#8B8680', fontSize: '9px' }}>
-          {collapsed ? '▼' : '▲'}
-        </span>
+        <span style={{ marginLeft: 'auto', color: 'rgba(202,210,197,0.3)', fontSize: '9px' }}>{collapsed ? '▼' : '▲'}</span>
       </button>
 
       {!collapsed && (
-        <div className="custom-scrollbar" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 260px)', padding: '12px' }}>
+        <div className="custom-scrollbar" style={{ overflowY: 'auto', flex: 1, padding: '12px' }}>
           {tasks.length === 0 ? (
-            <div style={{ padding: '20px 8px', textAlign: 'center' }}>
-              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '11px', color: '#8B8680', lineHeight: 1.6 }}>
+            <div style={{ padding: '24px 8px', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', color: 'rgba(202,210,197,0.3)', lineHeight: 1.6 }}>
                 No tasks yet.
               </div>
-              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '10px', color: 'rgba(139,134,128,0.5)', marginTop: '4px' }}>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '10px', color: 'rgba(202,210,197,0.18)', marginTop: '4px' }}>
                 Write "we need to..." on canvas
               </div>
             </div>
@@ -98,19 +84,19 @@ export function TaskBoard({ roomId }: { roomId: string }) {
                   style={{
                     display: 'block', width: '100%',
                     padding: '12px 14px', marginBottom: '8px',
-                    background: 'rgba(248, 246, 242, 0.06)',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    borderLeft: '3px solid rgba(212, 160, 23, 0.5)',
-                    borderRadius: '14px',
+                    background: 'rgba(53, 79, 82, 0.5)',
+                    border: '1px solid rgba(202,210,197,0.07)',
+                    borderLeft: '3px solid rgba(132,169,140,0.5)',
+                    borderRadius: '1.25rem',
                     cursor: 'pointer', textAlign: 'left',
-                    transition: 'background 0.2s ease, border-color 0.2s ease',
+                    transition: 'background 0.2s ease',
                   }}
-                  whileHover={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
+                  whileHover={{ backgroundColor: 'rgba(53,79,82,0.75)' }}
                 >
-                  <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', fontWeight: 500, color: '#E8E0D0', lineHeight: 1.5 }}>
+                  <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', fontWeight: 500, color: '#CAD2C5', lineHeight: 1.5 }}>
                     {t.text}
                   </div>
-                  <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', color: '#8B8680', marginTop: '6px' }}>
+                  <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', color: 'rgba(202,210,197,0.3)', marginTop: '6px' }}>
                     {new Date(t.created_at).toLocaleTimeString()}
                   </div>
                 </motion.button>

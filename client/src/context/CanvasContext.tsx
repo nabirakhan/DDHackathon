@@ -6,6 +6,7 @@ import 'tldraw/tldraw.css'
 
 interface CanvasCtx {
   editor: Editor | null
+  _setEditor: (e: Editor) => void
   store: TLStore
   ydoc: Y.Doc
   yShapes: Y.Map<TLShape>
@@ -17,25 +18,21 @@ export function CanvasProvider({ children }: { children: ReactNode }) {
   const store = useMemo(() => createTLStore({ shapeUtils: defaultShapeUtils }), [])
   const ydoc = useMemo(() => new Y.Doc(), [])
   const yShapes = useMemo(() => ydoc.getMap<TLShape>('shapes'), [ydoc])
-  const [editor, setEditor] = useState<Editor | null>(null)
+  const [editor, _setEditor] = useState<Editor | null>(null)
 
   return (
-    <CanvasContext.Provider value={{ editor, store, ydoc, yShapes }}>
-      <div style={{
-        position: 'fixed',
-        top: '80px',
-        left: '284px',
-        right: '284px',
-        bottom: '96px',
-        borderRadius: '2.5rem',
-        overflow: 'hidden',
-        boxShadow: '0 0 0 1px rgba(0,0,0,0.45), 0 40px 100px rgba(0,0,0,0.55)',
-        zIndex: 1,
-      }}>
-        <Tldraw store={store} onMount={setEditor} />
-      </div>
+    <CanvasContext.Provider value={{ editor, _setEditor, store, ydoc, yShapes }}>
       {children}
     </CanvasContext.Provider>
+  )
+}
+
+export function CanvasMount() {
+  const { store, _setEditor } = useCanvas()
+  return (
+    <div style={{ position: 'absolute', inset: 0 }}>
+      <Tldraw store={store} onMount={_setEditor} />
+    </div>
   )
 }
 

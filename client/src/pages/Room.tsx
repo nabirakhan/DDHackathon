@@ -2,7 +2,7 @@
 import { useParams } from 'react-router-dom'
 import { useEffect } from 'react'
 import { Toaster } from 'sonner'
-import { CanvasProvider } from '../context/CanvasContext'
+import { CanvasProvider, CanvasMount } from '../context/CanvasContext'
 import { useYjsBinding } from '../hooks/useYjsBinding'
 import { ConnectionBanner } from '../components/ConnectionBanner'
 import { CursorPresence } from '../components/CursorPresence'
@@ -22,35 +22,70 @@ function RoomInner({ roomId }: { roomId: string }) {
   }, [roomId])
 
   return (
-    <>
-      <div style={{ position: 'fixed', inset: 0, background: '#111315', zIndex: 0 }} />
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0, opacity: 0.65 }}>
-        <SoftAurora color1="#5D5646" color2="#3E5974" speed={0.14} brightness={0.3} bandSpread={0.35} enableMouseInteraction={false} />
+    <div style={{ position: 'fixed', inset: 0, background: '#141f1f' }}>
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        <SoftAurora
+          color1="#354F52"
+          color2="#52796F"
+          speed={0.14}
+          brightness={0.38}
+          bandSpread={0.4}
+          enableMouseInteraction={false}
+        />
       </div>
 
-      <TopBar roomId={roomId} />
+      <div style={{
+        position: 'relative',
+        zIndex: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        padding: '20px',
+        gap: '16px',
+      }}>
+        <TopBar roomId={roomId} />
+
+        <div style={{ display: 'flex', flex: 1, gap: '16px', minHeight: 0 }}>
+          <EventLog roomId={roomId} />
+
+          <main style={{
+            flex: 1,
+            position: 'relative',
+            overflow: 'hidden',
+            borderRadius: '2.5rem',
+            background: '#F0F4F2',
+            boxShadow: '0 0 0 1px rgba(0,0,0,0.12), 0 40px 100px rgba(0,0,0,0.5)',
+          }}>
+            <CanvasMount />
+          </main>
+
+          <TaskBoard roomId={roomId} />
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
+          <ToolDock roomId={roomId} />
+        </div>
+      </div>
+
       <ConnectionBanner />
-      <EventLog roomId={roomId} />
-      <TaskBoard roomId={roomId} />
       <ContestedNodeOverlay roomId={roomId} />
       <CursorPresence roomId={roomId} />
       <AIStatusPill />
-      <ToolDock roomId={roomId} />
 
       <Toaster
         position="top-center"
         toastOptions={{
           style: {
-            background: 'rgba(26, 28, 30, 0.92)',
-            border: '1px solid rgba(200, 188, 168, 0.15)',
-            color: '#E8E0D0',
-            fontFamily: 'DM Mono, monospace',
+            background: 'rgba(47, 62, 70, 0.92)',
+            border: '1px solid rgba(202, 210, 197, 0.15)',
+            color: '#CAD2C5',
+            fontFamily: 'Inter, sans-serif',
             fontSize: '12px',
-            backdropFilter: 'blur(12px)',
+            backdropFilter: 'blur(20px)',
           }
         }}
       />
-    </>
+    </div>
   )
 }
 
