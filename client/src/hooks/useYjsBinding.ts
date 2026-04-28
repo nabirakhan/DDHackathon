@@ -35,44 +35,65 @@ export function useYjsBinding(roomId: string) {
   const isApplyingRemote = useRef(false)
   const metaQueue = useRef<PendingMeta[]>([])
   const editorRef = useRef(editor)
-  
+  const pendingBatch = useRef<Array<[string, unknown, 'add' | 'update' | 'remove']>>([])
+  const rafId = useRef<number | null>(null)
+
   useEffect(() => { editorRef.current = editor }, [editor])
 
+  // Outbound: batch all store changes within one animation frame into a single yjs transaction
   useEffect(() => {
     if (!store) return
-    
+
+    const flush = () => {
+      rafId.current = null
+      const batch = pendingBatch.current.splice(0)
+      if (!batch.length) return
+
+      const lastNonRemove = batch.findLast(([, , kind]) => kind !== 'remove') ?? batch[batch.length - 1]
+      metaQueue.current.push({
+        nodeId: lastNonRemove[0],
+        textSnapshot: extractShapeText(lastNonRemove[1]),
+      })
+
+      ydoc.transact(() => {
+        for (const [id, shape, kind] of batch) {
+          if (kind === 'remove') yShapes.delete(id)
+          else yShapes.set(id, shape as Parameters<typeof yShapes.set>[1])
+        }
+      }, 'local')
+    }
+
     const unlisten = store.listen(({ changes }) => {
       if (isApplyingRemote.current) return
 
-      const all: Array<[string, unknown, 'add' | 'update' | 'remove']> = []
-      Object.entries(changes.added).forEach(([id, shape]) => all.push([id, shape, 'add']))
-      Object.entries(changes.updated).forEach(([, [, shape]]) =>
-        all.push([(shape as { id: string }).id, shape, 'update'])
-      )
-      Object.values(changes.removed).forEach(shape =>
-        all.push([(shape as { id: string }).id, shape, 'remove'])
-      )
+      Object.entries(changes.added).forEach(([id, shape]) => {
+        if (NON_DOCUMENT_TYPES.has((shape as any).typeName ?? '')) return
+        pendingBatch.current.push([id, shape, 'add'])
+      })
+      Object.entries(changes.updated).forEach(([, [, shape]]) => {
+        if (NON_DOCUMENT_TYPES.has((shape as any).typeName ?? '')) return
+        pendingBatch.current.push([(shape as any).id, shape, 'update'])
+      })
+      Object.values(changes.removed).forEach(shape => {
+        if (NON_DOCUMENT_TYPES.has((shape as any).typeName ?? '')) return
+        pendingBatch.current.push([(shape as any).id, shape, 'remove'])
+      })
 
-      for (const [id, shape, kind] of all) {
-        const typeName = (shape as { typeName?: string })?.typeName ?? ''
-        if (NON_DOCUMENT_TYPES.has(typeName)) continue
-
-        const text = extractShapeText(shape)
-        metaQueue.current.push({ nodeId: id, textSnapshot: text })
-        ydoc.transact(() => {
-          if (kind === 'remove') yShapes.delete(id)
-          else yShapes.set(id, shape as Parameters<typeof yShapes.set>[1])
-        }, 'local')
+      if (pendingBatch.current.length > 0) {
+        if (rafId.current) cancelAnimationFrame(rafId.current)
+        rafId.current = requestAnimationFrame(flush)
       }
     })
-    
-    return () => unlisten()
+
+    return () => {
+      unlisten()
+      if (rafId.current) cancelAnimationFrame(rafId.current)
+    }
   }, [store, ydoc, yShapes])
 
+  // Inbound: only apply the shapes that actually changed (keysChanged), not all shapes
   useEffect(() => {
     const observer = (event: Y.YMapEvent<any>) => {
-      console.log('[yjs:observe] fired — origin:', event.transaction.origin, 'keysChanged:', [...event.keysChanged])
-      
       if (event.transaction.origin === 'local') return
 
       isApplyingRemote.current = true
@@ -81,18 +102,15 @@ export function useYjsBinding(roomId: string) {
 
         const removed = Array.from(event.keysChanged)
           .filter(k => !yShapes.has(k)) as TLShapeId[]
-        if (removed.length && store) {
-          console.log('[yjs:observe] Removing shapes:', removed)
-          store.remove(removed)
-        }
+        if (removed.length && store) store.remove(removed)
 
-        const allShapes = Array.from(yShapes.values())
-          .filter(s => (s as { id: string }).id !== editingId)
+        const changed = Array.from(event.keysChanged)
+          .filter(k => yShapes.has(k) && k !== editingId)
+          .map(k => yShapes.get(k)!)
 
-        if (store && allShapes.length > 0) {
-          console.log('[yjs:observe] Applying', allShapes.length, 'shapes to store')
+        if (store && changed.length > 0) {
           store.mergeRemoteChanges(() => {
-            store.put(allShapes as Parameters<typeof store.put>[0])
+            store.put(changed as Parameters<typeof store.put>[0])
           })
         }
       } catch (err) {
@@ -101,19 +119,18 @@ export function useYjsBinding(roomId: string) {
         isApplyingRemote.current = false
       }
     }
-    
+
     yShapes.observe(observer)
     return () => yShapes.unobserve(observer)
   }, [yShapes, store])
 
+  // Inbound WebSocket messages
   useEffect(() => {
     const unsub = wsClient.on((msg) => {
       if (msg.type === 'mutation:broadcast') {
         const bytes = new Uint8Array(msg.payload.yjsUpdate)
-        console.log('[ws:inbound] mutation:broadcast —', bytes.length, 'bytes, nodeId:', msg.payload.nodeId)
         try {
           Y.applyUpdate(ydoc, bytes, 'remote')
-          console.log('[ws:inbound] Successfully applied remote update')
         } catch (err) {
           console.error('[ws:inbound] applyUpdate threw:', err)
         }
@@ -121,10 +138,8 @@ export function useYjsBinding(roomId: string) {
 
       if (msg.type === 'room:joined') {
         const bytes = new Uint8Array(msg.payload.yjsDiff)
-        console.log('[ws:inbound] room:joined — yjsDiff bytes:', bytes.length)
         try {
           Y.applyUpdate(ydoc, bytes, 'remote')
-          console.log('[ws:inbound] Room join update applied successfully')
         } catch (err) {
           console.error('[ws:inbound] room:joined applyUpdate threw:', err)
         }
@@ -138,18 +153,17 @@ export function useYjsBinding(roomId: string) {
         } else if (code === 'NODE_LOCKED') {
           toast.warning('This node is locked as a decision.')
         }
-        console.warn('[ws:inbound] permission denied:', code)
       }
     })
     return unsub
   }, [ydoc, setRoomReady])
 
+  // Outbound: send batched yjs update over WebSocket
   useEffect(() => {
     const handler = (update: Uint8Array, origin: unknown) => {
       if (origin !== 'local') return
       const meta = metaQueue.current.shift()
       if (!meta) return
-      console.log('[ws:outbound] mutation:apply —', update.length, 'bytes, nodeId:', meta.nodeId)
       wsClient.send({
         type: 'mutation:apply',
         payload: {
