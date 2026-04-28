@@ -1,4 +1,3 @@
-// client/src/hooks/useYjsBinding.ts
 import { useEffect, useRef } from 'react'
 import * as Y from 'yjs'
 import { toast } from 'sonner'
@@ -36,11 +35,13 @@ export function useYjsBinding(roomId: string) {
   const isApplyingRemote = useRef(false)
   const metaQueue = useRef<PendingMeta[]>([])
   const editorRef = useRef(editor)
+  
   useEffect(() => { editorRef.current = editor }, [editor])
 
-  // Local store → Yjs → WS outbound
   useEffect(() => {
-    return store.listen(({ changes }) => {
+    if (!store) return
+    
+    const unlisten = store.listen(({ changes }) => {
       if (isApplyingRemote.current) return
 
       const all: Array<[string, unknown, 'add' | 'update' | 'remove']> = []
@@ -64,12 +65,14 @@ export function useYjsBinding(roomId: string) {
         }, 'local')
       }
     })
+    
+    return () => unlisten()
   }, [store, ydoc, yShapes])
 
-  // Yjs remote changes → tldraw store (Bug C: skip shape being actively edited)
   useEffect(() => {
     const observer = (event: Y.YMapEvent<any>) => {
       console.log('[yjs:observe] fired — origin:', event.transaction.origin, 'keysChanged:', [...event.keysChanged])
+      
       if (event.transaction.origin === 'local') return
 
       isApplyingRemote.current = true
@@ -78,29 +81,31 @@ export function useYjsBinding(roomId: string) {
 
         const removed = Array.from(event.keysChanged)
           .filter(k => !yShapes.has(k)) as TLShapeId[]
-        if (removed.length) store.remove(removed)
+        if (removed.length && store) {
+          console.log('[yjs:observe] Removing shapes:', removed)
+          store.remove(removed)
+        }
 
         const allShapes = Array.from(yShapes.values())
           .filter(s => (s as { id: string }).id !== editingId)
 
-        if (editingId) {
-          console.log('[yjs:observe] skipping active editing shape:', editingId)
+        if (store && allShapes.length > 0) {
+          console.log('[yjs:observe] Applying', allShapes.length, 'shapes to store')
+          store.mergeRemoteChanges(() => {
+            store.put(allShapes as Parameters<typeof store.put>[0])
+          })
         }
-
-        store.mergeRemoteChanges(() => {
-          store.put(allShapes as Parameters<typeof store.put>[0])
-        })
       } catch (err) {
-        console.error('[yjs:observe] ERROR in mergeRemoteChanges:', err)
+        console.error('[yjs:observe] ERROR:', err)
       } finally {
         isApplyingRemote.current = false
       }
     }
+    
     yShapes.observe(observer)
     return () => yShapes.unobserve(observer)
   }, [yShapes, store])
 
-  // WS inbound → Yjs
   useEffect(() => {
     const unsub = wsClient.on((msg) => {
       if (msg.type === 'mutation:broadcast') {
@@ -108,6 +113,7 @@ export function useYjsBinding(roomId: string) {
         console.log('[ws:inbound] mutation:broadcast —', bytes.length, 'bytes, nodeId:', msg.payload.nodeId)
         try {
           Y.applyUpdate(ydoc, bytes, 'remote')
+          console.log('[ws:inbound] Successfully applied remote update')
         } catch (err) {
           console.error('[ws:inbound] applyUpdate threw:', err)
         }
@@ -118,6 +124,7 @@ export function useYjsBinding(roomId: string) {
         console.log('[ws:inbound] room:joined — yjsDiff bytes:', bytes.length)
         try {
           Y.applyUpdate(ydoc, bytes, 'remote')
+          console.log('[ws:inbound] Room join update applied successfully')
         } catch (err) {
           console.error('[ws:inbound] room:joined applyUpdate threw:', err)
         }
@@ -135,9 +142,8 @@ export function useYjsBinding(roomId: string) {
       }
     })
     return unsub
-  }, [ydoc, yShapes, setRoomReady])
+  }, [ydoc, setRoomReady])
 
-  // Yjs local updates → WS outbound
   useEffect(() => {
     const handler = (update: Uint8Array, origin: unknown) => {
       if (origin !== 'local') return

@@ -1,4 +1,3 @@
-// client/src/pages/Room.tsx
 import { useParams } from 'react-router-dom'
 import { useEffect } from 'react'
 import { Toaster } from 'sonner'
@@ -27,8 +26,9 @@ function RoomInner({ roomId }: { roomId: string }) {
 
   useEffect(() => {
     if (!editor || !role) return
-    editor.updateInstanceState({ isReadonly: role === 'viewer' })
-    console.log(`[role] tldraw readOnly=${role === 'viewer'} (role=${role})`)
+    const isReadOnly = role === 'viewer'
+    editor.updateInstanceState({ isReadonly: isReadOnly })
+    console.log(`[room] Role: ${role}, readOnly: ${isReadOnly}`)
   }, [editor, role])
 
   return (
