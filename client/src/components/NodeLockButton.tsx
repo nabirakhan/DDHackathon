@@ -9,12 +9,12 @@ import type { TLShapeId } from 'tldraw'
 export function NodeLockButton({ roomId }: { roomId: string }) {
   const editor = useEditor()
   const { role } = useMyRole(roomId)
-  const [hoveredNode, setHoveredNode] = useState<TLShapeId | null>(null)
+  const [selectedNode, setSelectedNode] = useState<TLShapeId | null>(null)
   const [lockedNodes, setLockedNodes] = useState<Set<string>>(new Set())
 
   // Subscribe to lock/unlock events
   useEffect(() => {
-    return wsClient.on((msg) => {
+    const unsubscribe = wsClient.on((msg) => {
       if (msg.type === 'node:decision_locked') {
         setLockedNodes(prev => new Set(prev).add(msg.payload.nodeId))
       }
@@ -26,49 +26,56 @@ export function NodeLockButton({ roomId }: { roomId: string }) {
         })
       }
     })
+    return unsubscribe
   }, [])
 
-  // Track hovered shape
+  // Poll for selected shape changes (since tldraw doesn't have standard event emitters)
   useEffect(() => {
     if (!editor) return
     
-    const handlePointerMove = () => {
-      const shape = editor.getSelectedShapes()[0]
-      if (shape) {
-        setHoveredNode(shape.id)
+    const interval = setInterval(() => {
+      try {
+        const selectedShapes = editor.getSelectedShapes()
+        if (selectedShapes && selectedShapes.length > 0) {
+          const shape = selectedShapes[0]
+          if (shape && shape.id) {
+            setSelectedNode(shape.id)
+          }
+        } else {
+          setSelectedNode(null)
+        }
+      } catch (err) {
+        // Ignore errors
       }
-    }
+    }, 100)
     
-    editor.on('selection:change', handlePointerMove)
     return () => {
-      editor.off('selection:change', handlePointerMove)
+      clearInterval(interval)
     }
   }, [editor])
 
   // Only show for lead
   if (role !== 'lead') return null
 
-  const isLocked = hoveredNode ? lockedNodes.has(hoveredNode) : false
+  const isLocked = selectedNode ? lockedNodes.has(selectedNode) : false
 
-  const toggleLock = async () => {
-    if (!hoveredNode) return
+  const toggleLock = () => {
+    if (!selectedNode) return
     
     if (isLocked) {
-      // Unlock: remove lock from node_acl
       wsClient.send({
         type: 'node:unlock',
-        payload: { roomId, nodeId: hoveredNode }
+        payload: { roomId, nodeId: selectedNode }
       })
     } else {
-      // Lock: set lock in node_acl
       wsClient.send({
         type: 'decision:lock',
-        payload: { roomId, nodeId: hoveredNode }
+        payload: { roomId, nodeId: selectedNode }
       })
     }
   }
 
-  if (!hoveredNode) return null
+  if (!selectedNode) return null
 
   return (
     <div

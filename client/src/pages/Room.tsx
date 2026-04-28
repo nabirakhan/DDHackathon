@@ -1,110 +1,124 @@
-import { useParams } from 'react-router-dom'
-import { useEffect } from 'react'
-import { Toaster } from 'sonner'
-import { CanvasProvider, CanvasMount, useEditor } from '../context/CanvasContext'
-import { useYjsBinding } from '../hooks/useYjsBinding'
-import { useMyRole } from '../hooks/useMyRole'
-import { ConnectionBanner } from '../components/ConnectionBanner'
-import { CursorPresence } from '../components/CursorPresence'
-import { TaskBoard } from '../components/TaskBoard'
-import { EventLog } from '../components/EventLog'
-import { TopBar } from '../components/TopBar'
-import { ContestedNodeOverlay } from '../components/ContestedNodeOverlay'
-import { ToolDock, AIStatusPill } from '../components/ToolDock'
+// client/src/components/NodeLockButton.tsx
+import { useEffect, useState } from 'react'
+import { Lock, Unlock } from 'lucide-react'
+import { useEditor } from '../context/CanvasContext'
 import { wsClient } from '../lib/wsClient'
-import { SoftAurora } from '../components/ui/SoftAurora'
-import { getDisplayName } from '../hooks/useAuth'
+import { useMyRole } from '../hooks/useMyRole'
+import type { TLShapeId } from 'tldraw'
 
-function RoomInner({ roomId }: { roomId: string }) {
-  useYjsBinding(roomId)
+export function NodeLockButton({ roomId }: { roomId: string }) {
   const editor = useEditor()
   const { role } = useMyRole(roomId)
+  const [selectedNode, setSelectedNode] = useState<TLShapeId | null>(null)
+  const [lockedNodes, setLockedNodes] = useState<Set<string>>(new Set())
 
+  // Subscribe to lock/unlock events
   useEffect(() => {
-    wsClient.send({ type: 'room:join', payload: { roomId, clientStateVector: [], displayName: getDisplayName() } })
-  }, [roomId])
+    const unsubscribe = wsClient.on((msg) => {
+      if (msg.type === 'node:decision_locked') {
+        setLockedNodes(prev => new Set(prev).add(msg.payload.nodeId))
+      }
+      if (msg.type === 'node:unlocked') {
+        setLockedNodes(prev => {
+          const next = new Set(prev)
+          next.delete(msg.payload.nodeId)
+          return next
+        })
+      }
+    })
+    return unsubscribe
+  }, [])
 
+  // Track selected shape using tldraw's store events
   useEffect(() => {
-    if (!editor || !role) return
-    const isReadOnly = role === 'viewer'
-    editor.updateInstanceState({ isReadonly: isReadOnly })
-    console.log(`[room] Role: ${role}, readOnly: ${isReadOnly}`)
-  }, [editor, role])
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: '#141f1f' }}>
-      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        <SoftAurora
-          color1="#354F52"
-          color2="#52796F"
-          speed={0.14}
-          brightness={0.38}
-          bandSpread={0.4}
-          enableMouseInteraction={false}
-        />
-      </div>
-
-      <div style={{
-        position: 'relative',
-        zIndex: 10,
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        padding: '20px',
-        gap: '16px',
-      }}>
-        <TopBar roomId={roomId} />
-
-        <div style={{ display: 'flex', flex: 1, gap: '16px', minHeight: 0 }}>
-          <EventLog roomId={roomId} />
-
-          <main style={{
-            flex: 1,
-            position: 'relative',
-            overflow: 'hidden',
-            borderRadius: '2.5rem',
-            background: '#F0F4F2',
-            boxShadow: '0 0 0 1px rgba(0,0,0,0.12), 0 40px 100px rgba(0,0,0,0.5)',
-          }}>
-            <CanvasMount />
-          </main>
-
-          <TaskBoard roomId={roomId} />
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
-          <ToolDock roomId={roomId} />
-        </div>
-      </div>
-
-      <ConnectionBanner />
-      <ContestedNodeOverlay roomId={roomId} />
-      <CursorPresence roomId={roomId} />
-      <AIStatusPill />
-
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          style: {
-            background: 'rgba(47, 62, 70, 0.92)',
-            border: '1px solid rgba(202, 210, 197, 0.15)',
-            color: '#CAD2C5',
-            fontFamily: 'Inter, sans-serif',
-            fontSize: '12px',
-            backdropFilter: 'blur(20px)',
+    if (!editor) return
+    
+    // Subscribe to selection changes via store
+    const unsubscribe = editor.store.listen(
+      (event) => {
+        // Check if selection changed
+        if (event.changes.updated) {
+          for (const [_, record] of Object.entries(event.changes.updated)) {
+            if (record && (record as any).typeName === 'instance') {
+              const selectedIds = editor.getSelectedShapeIds()
+              if (selectedIds && selectedIds.length > 0) {
+                setSelectedNode(selectedIds[0])
+              } else {
+                setSelectedNode(null)
+              }
+              break
+            }
           }
-        }}
-      />
-    </div>
-  )
-}
+        }
+      },
+      { source: 'user', scope: 'document' }
+    )
+    
+    return () => {
+      unsubscribe()
+    }
+  }, [editor])
 
-export default function Room() {
-  const { id } = useParams<{ id: string }>()
-  if (!id) return null
+  // Only show for lead
+  if (role !== 'lead') return null
+
+  const isLocked = selectedNode ? lockedNodes.has(selectedNode) : false
+
+  const toggleLock = () => {
+    if (!selectedNode) return
+    
+    if (isLocked) {
+      wsClient.send({
+        type: 'node:unlock',
+        payload: { roomId, nodeId: selectedNode }
+      })
+    } else {
+      wsClient.send({
+        type: 'decision:lock',
+        payload: { roomId, nodeId: selectedNode }
+      })
+    }
+  }
+
+  if (!selectedNode) return null
+
   return (
-    <CanvasProvider>
-      <RoomInner roomId={id} />
-    </CanvasProvider>
+    <div
+      style={{
+        position: 'fixed',
+        bottom: '120px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 100,
+        background: 'rgba(47, 62, 70, 0.95)',
+        backdropFilter: 'blur(20px)',
+        border: `1px solid ${isLocked ? 'rgba(239, 68, 68, 0.4)' : 'rgba(132, 169, 140, 0.4)'}`,
+        borderRadius: '999px',
+        padding: '8px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+        pointerEvents: 'auto',
+        cursor: 'pointer',
+      }}
+      onClick={toggleLock}
+    >
+      {isLocked ? (
+        <>
+          <Lock size={14} color="#ef4444" />
+          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', color: '#ef4444' }}>
+            Unlock Node
+          </span>
+        </>
+      ) : (
+        <>
+          <Unlock size={14} color="#84A98C" />
+          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', color: '#84A98C' }}>
+            Lock Node
+          </span>
+        </>
+      )}
+    </div>
   )
 }
