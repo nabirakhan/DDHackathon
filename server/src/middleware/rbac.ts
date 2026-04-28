@@ -19,9 +19,19 @@ export async function getMembership(userId: string, roomId: string): Promise<Use
   const key = `${userId}:${roomId}`
   const cached = roleCache.get(key)
   if (cached && Date.now() < cached.expiresAt) return cached.role
-  const { data } = await db.from('room_members').select('role').eq('room_id', roomId).eq('user_id', userId).single()
-  if (!data) return null
-  roleCache.set(key, { role: data.role as UserRole, expiresAt: Date.now() + 5000 })
+  
+  const { data, error } = await db.from('room_members')
+    .select('role')
+    .eq('room_id', roomId)
+    .eq('user_id', userId)
+    .maybeSingle() // Use maybeSingle instead of single to avoid PGRST116 error
+  
+  if (error || !data) {
+    console.log(`[rbac] No membership for ${key}:`, error?.message)
+    return null
+  }
+  
+  roleCache.set(key, { role: data.role as UserRole, expiresAt: Date.now() + 30000 })
   return data.role as UserRole
 }
 
@@ -29,14 +39,14 @@ export async function getNodeAcl(roomId: string, nodeId: string): Promise<NodeAc
   const key = `${roomId}:${nodeId}`
   const cached = aclCache.get(key)
   if (cached && Date.now() < cached.expiresAt) return cached.acl
-  const { data } = await db.from('node_acl').select('*').eq('room_id', roomId).eq('node_id', nodeId).single()
-  aclCache.set(key, { acl: (data ?? null) as NodeAcl | null, expiresAt: Date.now() + 5000 })
+  const { data } = await db.from('node_acl').select('*').eq('room_id', roomId).eq('node_id', nodeId).maybeSingle()
+  aclCache.set(key, { acl: (data ?? null) as NodeAcl | null, expiresAt: Date.now() + 30000 })
   return (data ?? null) as NodeAcl | null
 }
 
 function logPermissionDenied(userId: string, roomId: string, nodeId: string, action: string) {
   const key = `${userId}:${nodeId}`
-  if (Date.now() - (denialLog.get(key) ?? 0) < 10_000) return
+  if (Date.now() - (denialLog.get(key) ?? 0) < 10000) return
   denialLog.set(key, Date.now())
   writeEvent(roomId, userId, 'permission_denied', nodeId, { action }).catch(console.error)
 }
@@ -49,7 +59,7 @@ export async function checkPermission(socket: AuthSocket, msg: WSClientMessage):
   const payload = (msg as MutationApplyMessage).payload
 
   if (msg.type !== 'room:join' && socket.roomId && socket.roomId !== payload.roomId) {
-    console.log(`[rbac] DENY user=${socket.userId} reason=ROOM_MISMATCH socket.roomId=${socket.roomId} payload.roomId=${payload.roomId}`)
+    console.log(`[rbac] DENY user=${socket.userId} reason=ROOM_MISMATCH`)
     send(socket, { type: 'error:permission_denied', payload: { code: 'ROOM_MISMATCH' } })
     return false
   }
@@ -63,9 +73,8 @@ export async function checkPermission(socket: AuthSocket, msg: WSClientMessage):
     return false
   }
 
-  // Viewers can never mutate — short-circuit before any ACL lookup
   if (role === 'viewer') {
-    console.log(`[rbac] DENY user=${socket.userId} reason=VIEWER nodeId=${payload.nodeId}`)
+    console.log(`[rbac] DENY user=${socket.userId} reason=VIEWER`)
     send(socket, { type: 'error:permission_denied', payload: { code: 'INSUFFICIENT_ROLE' } })
     logPermissionDenied(socket.userId, payload.roomId, payload.nodeId, msg.type)
     return false
@@ -74,8 +83,6 @@ export async function checkPermission(socket: AuthSocket, msg: WSClientMessage):
   const nodeAcl = await getNodeAcl(payload.roomId, payload.nodeId)
   const requiredRole = nodeAcl?.required_role ?? 'contributor'
   const isLocked = nodeAcl?.is_locked ?? false
-
-  console.log(`[rbac] nodeId=${payload.nodeId} acl=${nodeAcl ? `required=${requiredRole} locked=${isLocked}` : 'none(fallback=contributor)'}`)
 
   const hierarchy: Record<UserRole, number> = { lead: 3, contributor: 2, viewer: 1 }
   if (hierarchy[role] < hierarchy[requiredRole]) {

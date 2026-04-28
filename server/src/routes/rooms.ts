@@ -10,6 +10,7 @@ const router = Router()
 router.post('/', requireAuth, async (req: any, res: any) => {
   const { name } = req.body
   if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Invalid name' })
+  
   const { data: room, error } = await db.from('rooms')
     .insert({ name, created_by: req.userId }).select().single()
   if (error || !room) {
@@ -34,22 +35,48 @@ router.get('/:id', requireAuth, async (req: any, res: any) => {
   res.json({ room })
 })
 
+// FIXED: Members endpoint - added debug logging and proper error handling
 router.get('/:id/members', requireAuth, async (req: any, res: any) => {
-  const role = await getMembership(req.userId, req.params.id)
-  if (!role) return res.status(403).json({ error: 'Not a member' })
-  const { data } = await db.from('room_members').select('user_id, role').eq('room_id', req.params.id)
+  const { id: roomId } = req.params
+  const userId = req.userId
+  
+  console.log(`[members] Request: userId=${userId}, roomId=${roomId}`)
+  
+  // Verify membership first
+  const role = await getMembership(userId, roomId)
+  console.log(`[members] Membership check result: role=${role}`)
+  
+  if (!role) {
+    console.log(`[members] Access denied: user ${userId} is not a member of room ${roomId}`)
+    return res.status(403).json({ error: 'Not a member' })
+  }
+  
+  // Fetch all members
+  const { data: dbMembers, error } = await db.from('room_members')
+    .select('user_id, role')
+    .eq('room_id', roomId)
+  
+  if (error) {
+    console.error('[members] DB error:', error)
+    return res.status(500).json({ error: 'Internal server error' })
+  }
+  
+  console.log(`[members] Found ${dbMembers?.length || 0} members in DB`)
 
-  // Enrich with display names from currently connected sockets
+  // Enrich with display names from connected WebSocket clients
   const nameMap = new Map<string, string>()
-  const liveRoom = rooms.get(req.params.id)
+  const liveRoom = rooms.get(roomId)
   if (liveRoom) {
     for (const socket of liveRoom.clients) {
-      if (socket.userId && socket.displayName) nameMap.set(socket.userId, socket.displayName)
+      if (socket.userId && socket.displayName) {
+        nameMap.set(socket.userId, socket.displayName)
+      }
     }
   }
 
-  const members = (data ?? []).map(m => ({
-    ...m,
+  const members = (dbMembers ?? []).map(m => ({
+    user_id: m.user_id,
+    role: m.role,
     display_name: nameMap.get(m.user_id) ?? null,
   }))
 
