@@ -11,12 +11,14 @@ let isRefreshing = false
 let isAuthing = false
 let attempt = 0
 let pingInterval: ReturnType<typeof setInterval> | null = null
+let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
 
 const getWS = () => currentWs
-const backoff = () => Math.min(30_000, 1000 * 2 ** attempt++)
+const backoff = () => Math.min(30000, 1000 * Math.pow(2, attempt++))
 
 function drainQueue() {
-  const q = pendingQueue
+  if (pendingQueue.length === 0) return
+  const q = [...pendingQueue]
   pendingQueue = []
   q.forEach(m => wsClient.send(m))
 }
@@ -24,12 +26,17 @@ function drainQueue() {
 function startPing(ws: WebSocket) {
   if (pingInterval) clearInterval(pingInterval)
   pingInterval = setInterval(() => {
-    if (ws.readyState === WebSocket.OPEN) ws.send('ping')
-  }, 30_000)
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send('ping')
+    }
+  }, 30000)
 }
 
 function stopPing() {
-  if (pingInterval) { clearInterval(pingInterval); pingInterval = null }
+  if (pingInterval) {
+    clearInterval(pingInterval)
+    pingInterval = null
+  }
 }
 
 export const wsClient = {
@@ -48,46 +55,88 @@ export const wsClient = {
   },
 
   connect(url: string) {
+    // Clean up existing connection
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout)
+      reconnectTimeout = null
+    }
+    
+    if (currentWs && currentWs.readyState === WebSocket.OPEN) {
+      console.log('[ws] Already connected')
+      return
+    }
+    
+    console.log('[ws] connecting to', url)
     const ws = new WebSocket(url)
     currentWs = ws
     isAuthing = true
-    console.log('[ws] connecting to', url)
 
     ws.onopen = async () => {
+      console.log('[ws] Connected successfully')
       attempt = 0
       startPing(ws)
-      const { data: { session } } = await supabase.auth.getSession()
-      console.log('[ws] open — sending auth, session present:', !!session)
-      ws.send(JSON.stringify({ type: 'auth', payload: { token: session?.access_token ?? '' } }))
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        console.log('[ws] Sending auth, session present:', !!session)
+        ws.send(JSON.stringify({ 
+          type: 'auth', 
+          payload: { token: session?.access_token ?? '' } 
+        }))
+      } catch (err) {
+        console.error('[ws] Auth error:', err)
+        ws.send(JSON.stringify({ type: 'auth', payload: { token: '' } }))
+      }
     }
 
     ws.onmessage = (e) => {
       if (e.data === 'pong') return
-      const msg: WSServerMessage = JSON.parse(e.data)
-      if (msg.type === 'auth:refreshed') {
-        isRefreshing = false
-        isAuthing = false
-        drainQueue()
+      try {
+        const msg: WSServerMessage = JSON.parse(e.data)
+        console.log('[ws] Received:', msg.type)
+        
+        if (msg.type === 'auth:refreshed') {
+          isRefreshing = false
+          isAuthing = false
+          drainQueue()
+        }
+        
+        listeners.forEach(l => l(msg))
+      } catch (err) {
+        console.error('[ws] Parse error:', err)
       }
-      listeners.forEach(l => l(msg))
     }
 
     ws.onclose = (ev) => {
-      console.log('[ws] closed — code:', ev.code, '| queued:', pendingQueue.length)
+      console.log(`[ws] Closed - code: ${ev.code}, reason: ${ev.reason}, queued: ${pendingQueue.length}`)
       stopPing()
       currentWs = null
       isAuthing = false
+      
+      // Don't reconnect if unauthorized
       if (ev.code === 4001) {
+        console.log('[ws] Unauthorized, redirecting to login')
         window.location.href = '/login'
         return
       }
-      setTimeout(() => wsClient.connect(url), backoff())
+      
+      // Reconnect with backoff
+      const delay = backoff()
+      console.log(`[ws] Reconnecting in ${delay}ms...`)
+      reconnectTimeout = setTimeout(() => wsClient.connect(url), delay)
     }
 
-    ws.onerror = () => ws.close()
+    ws.onerror = (err) => {
+      console.error('[ws] Error:', err)
+      ws.close()
+    }
   },
 
   disconnect() {
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout)
+      reconnectTimeout = null
+    }
     const ws = getWS()
     stopPing()
     if (ws) {
@@ -95,14 +144,24 @@ export const wsClient = {
       ws.close()
       currentWs = null
     }
+    pendingQueue = []
+    isAuthing = false
+    isRefreshing = false
+    attempt = 0
   },
 
   getReadyState: () => getWS()?.readyState ?? WebSocket.CLOSED,
 }
 
+// Handle auth state changes
 supabase.auth.onAuthStateChange((event, session) => {
+  console.log('[ws] Auth state change:', event)
   if (event === 'TOKEN_REFRESHED' && session) {
     isRefreshing = true
     wsClient.send({ type: 'auth:refresh', payload: { token: session.access_token } })
+  }
+  
+  if (event === 'SIGNED_OUT') {
+    wsClient.disconnect()
   }
 })

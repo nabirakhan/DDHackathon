@@ -8,8 +8,12 @@ import { useAuth } from '@/hooks/useAuth'
 import { wsClient } from '@/lib/wsClient'
 import { startKeepAlive } from '@/lib/keepAlive'
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL as string
-const WS_URL = SERVER_URL?.replace(/^http/, 'ws') ?? 'ws://localhost:3000'
+// Fix: Proper URL construction
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'https://ddhackathon.onrender.com'
+const WS_URL = import.meta.env.VITE_WS_URL || SERVER_URL.replace(/^https?/, 'wss')
+
+console.log('[App] Server URL:', SERVER_URL)
+console.log('[App] WebSocket URL:', WS_URL)
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -20,10 +24,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   useEffect(() => {
+    // Connect WebSocket
     wsClient.connect(WS_URL)
-    const stop = startKeepAlive(SERVER_URL)
+    
+    // Start keep-alive pings
+    const stopKeepAlive = startKeepAlive(SERVER_URL)
+    
     return () => {
-      stop()
+      stopKeepAlive()
       wsClient.disconnect()
     }
   }, [])
