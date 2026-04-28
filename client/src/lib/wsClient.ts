@@ -10,6 +10,7 @@ let pendingQueue: WSClientMessage[] = []
 let isRefreshing = false
 let isAuthing = false
 let attempt = 0
+let pingInterval: ReturnType<typeof setInterval> | null = null
 
 const getWS = () => currentWs
 const backoff = () => Math.min(30_000, 1000 * 2 ** attempt++)
@@ -17,19 +18,27 @@ const backoff = () => Math.min(30_000, 1000 * 2 ** attempt++)
 function drainQueue() {
   const q = pendingQueue
   pendingQueue = []
-  console.log('[ws] draining queue:', q.length, 'messages')
   q.forEach(m => wsClient.send(m))
+}
+
+function startPing(ws: WebSocket) {
+  if (pingInterval) clearInterval(pingInterval)
+  pingInterval = setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) ws.send('ping')
+  }, 30_000)
+}
+
+function stopPing() {
+  if (pingInterval) { clearInterval(pingInterval); pingInterval = null }
 }
 
 export const wsClient = {
   send(msg: WSClientMessage) {
     const ws = getWS()
     if (isRefreshing || isAuthing || !ws || ws.readyState !== WebSocket.OPEN) {
-      console.log('[ws] queuing message (isAuthing=%s isRefreshing=%s wsReady=%s):', isAuthing, isRefreshing, ws?.readyState, msg.type)
       pendingQueue.push(msg)
       return
     }
-    console.log('[ws] sending immediately:', msg.type)
     ws.send(JSON.stringify(msg))
   },
 
@@ -46,15 +55,16 @@ export const wsClient = {
 
     ws.onopen = async () => {
       attempt = 0
+      startPing(ws)
       const { data: { session } } = await supabase.auth.getSession()
       console.log('[ws] open — sending auth, session present:', !!session)
       ws.send(JSON.stringify({ type: 'auth', payload: { token: session?.access_token ?? '' } }))
     }
 
     ws.onmessage = (e) => {
+      if (e.data === 'pong') return
       const msg: WSServerMessage = JSON.parse(e.data)
       if (msg.type === 'auth:refreshed') {
-        console.log('[ws] auth:refreshed received — clearing isAuthing=%s isRefreshing=%s, draining queue (%d msgs)', isAuthing, isRefreshing, pendingQueue.length)
         isRefreshing = false
         isAuthing = false
         drainQueue()
@@ -63,11 +73,11 @@ export const wsClient = {
     }
 
     ws.onclose = (ev) => {
-      console.log('[ws] closed — code:', ev.code, 'reason:', ev.reason, '| queued msgs:', pendingQueue.length)
+      console.log('[ws] closed — code:', ev.code, '| queued:', pendingQueue.length)
+      stopPing()
       currentWs = null
       isAuthing = false
       if (ev.code === 4001) {
-        console.error('[ws] auth rejected (4001) — redirecting to login')
         window.location.href = '/login'
         return
       }
@@ -79,6 +89,7 @@ export const wsClient = {
 
   disconnect() {
     const ws = getWS()
+    stopPing()
     if (ws) {
       ws.onclose = null
       ws.close()

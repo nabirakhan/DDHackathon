@@ -18,6 +18,7 @@ export function attachAuth(wss: WebSocketServer) {
     }, 5000)
 
     socket.on('message', async (data: Buffer | ArrayBuffer | Buffer[]) => {
+      if (data.toString() === 'ping') { socket.send('pong'); return }
       let msg: { type: string; payload: { token: string } }
       try { msg = JSON.parse(data.toString()) } catch { return }
 
