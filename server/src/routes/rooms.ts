@@ -3,6 +3,7 @@ import { db } from '../db/supabase.js'
 import { requireAuth } from '../middleware/requireAuth.js'
 import { getMembership, roleCache } from '../middleware/rbac.js'
 import { broadcastToRoom } from '../ws/hub.js'
+import { rooms } from '../ws/yjsHandler.js'
 
 const router = Router()
 
@@ -10,13 +11,12 @@ router.post('/', requireAuth, async (req: any, res: any) => {
   const { name } = req.body
   if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Invalid name' })
   const { data: room, error } = await db.from('rooms')
-      .insert({ name, created_by: req.userId }).select().single()
-    if (error || !room) {
-      console.error('Room insert error:', error)
-      return res.status(500).json({ error: 'Internal server error' })
-    }
-    const { error: memberError } = await db.from('room_members').insert({ room_id: room.id, user_id: req.userId, role: 'lead' })
-    if (memberError) console.error('Member insert error:', memberError)
+    .insert({ name, created_by: req.userId }).select().single()
+  if (error || !room) {
+    console.error('Room insert error:', error)
+    return res.status(500).json({ error: 'Internal server error' })
+  }
+  await db.from('room_members').insert({ room_id: room.id, user_id: req.userId, role: 'lead' })
   res.json({ room })
 })
 
@@ -38,7 +38,22 @@ router.get('/:id/members', requireAuth, async (req: any, res: any) => {
   const role = await getMembership(req.userId, req.params.id)
   if (!role) return res.status(403).json({ error: 'Not a member' })
   const { data } = await db.from('room_members').select('user_id, role').eq('room_id', req.params.id)
-  res.json({ members: data ?? [] })
+
+  // Enrich with display names from currently connected sockets
+  const nameMap = new Map<string, string>()
+  const liveRoom = rooms.get(req.params.id)
+  if (liveRoom) {
+    for (const socket of liveRoom.clients) {
+      if (socket.userId && socket.displayName) nameMap.set(socket.userId, socket.displayName)
+    }
+  }
+
+  const members = (data ?? []).map(m => ({
+    ...m,
+    display_name: nameMap.get(m.user_id) ?? null,
+  }))
+
+  res.json({ members })
 })
 
 router.post('/:id/members', requireAuth, async (req: any, res: any) => {
@@ -49,6 +64,19 @@ router.post('/:id/members', requireAuth, async (req: any, res: any) => {
   if (!['lead', 'contributor', 'viewer'].includes(role)) return res.status(400).json({ error: 'Invalid role' })
   const { error } = await db.from('room_members').insert({ room_id: roomId, user_id, role })
   if (error) return res.status(500).json({ error: 'Internal server error' })
+  res.json({ ok: true })
+})
+
+router.delete('/:id/members/:userId', requireAuth, async (req: any, res: any) => {
+  const { id: roomId, userId: targetUserId } = req.params
+  const callerRole = await getMembership(req.userId, roomId)
+  if (callerRole !== 'lead') return res.status(403).json({ error: 'Lead only' })
+  if (targetUserId === req.userId) return res.status(400).json({ error: 'Cannot remove yourself' })
+  const { error } = await db.from('room_members').delete()
+    .eq('room_id', roomId).eq('user_id', targetUserId)
+  if (error) return res.status(500).json({ error: 'Internal server error' })
+  roleCache.delete(`${targetUserId}:${roomId}`)
+  broadcastToRoom(roomId, { type: 'member:removed', payload: { userId: targetUserId } })
   res.json({ ok: true })
 })
 
@@ -72,6 +100,7 @@ router.put('/:id/members/:userId/role', requireAuth, async (req: any, res: any) 
   for (const [key] of roleCache.entries()) {
     if (key.startsWith(`${targetUserId}:`)) roleCache.delete(key)
   }
+  console.log(`[role] ${targetUserId} → ${role} in room ${roomId} by ${req.userId}`)
   broadcastToRoom(roomId, { type: 'role:changed', payload: { userId: targetUserId, newRole: role } })
   res.json({ ok: true })
 })
@@ -84,7 +113,6 @@ router.patch('/:id/tasks/:taskId', requireAuth, async (req: any, res: any) => {
   if (!role) return res.status(403).json({ error: 'Not a member' })
   const { error } = await db.from('tasks').update({ status }).eq('id', taskId).eq('room_id', roomId)
   if (error) return res.status(500).json({ error: 'Internal server error' })
-  console.log(`[task:done] task ${taskId} marked ${status} by ${req.userId}`)
   broadcastToRoom(roomId, { type: 'task:updated', payload: { taskId, status } })
   res.json({ ok: true })
 })

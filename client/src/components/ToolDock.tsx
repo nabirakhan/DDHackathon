@@ -3,12 +3,14 @@ import { useEffect, useState } from 'react'
 import { Dock } from './ui/Dock'
 import { useEditor } from '../context/CanvasContext'
 import { wsClient } from '../lib/wsClient'
+import { useMyRole } from '../hooks/useMyRole'
 import { MousePointer2, Square, Type, Minus, ArrowRight, Eraser, Undo2, Redo2, Home } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-export function ToolDock({ roomId: _roomId }: { roomId: string }) {
+export function ToolDock({ roomId }: { roomId: string }) {
   const editor = useEditor()
   const navigate = useNavigate()
+  const { role } = useMyRole(roomId)
   const [aiActive, setAiActive] = useState(false)
 
   useEffect(() => {
@@ -20,8 +22,7 @@ export function ToolDock({ roomId: _roomId }: { roomId: string }) {
     })
   }, [])
 
-  const items = [
-    { icon: <Home size={17} />, label: 'Home', onClick: () => navigate('/') },
+  const editItems = role === 'viewer' ? [] : [
     { icon: <MousePointer2 size={17} />, label: 'Select', onClick: () => editor?.setCurrentTool('select') },
     { icon: <Square size={17} />, label: 'Rectangle', onClick: () => editor?.setCurrentTool('geo') },
     { icon: <Type size={17} />, label: 'Text', onClick: () => editor?.setCurrentTool('text') },
@@ -30,6 +31,11 @@ export function ToolDock({ roomId: _roomId }: { roomId: string }) {
     { icon: <Eraser size={17} />, label: 'Eraser', onClick: () => editor?.setCurrentTool('eraser') },
     { icon: <Undo2 size={17} />, label: 'Undo', onClick: () => editor?.undo() },
     { icon: <Redo2 size={17} />, label: 'Redo', onClick: () => editor?.redo() },
+  ]
+
+  const items = [
+    { icon: <Home size={17} />, label: 'Home', onClick: () => navigate('/') },
+    ...editItems,
   ]
 
   return (

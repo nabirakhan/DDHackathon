@@ -3,6 +3,7 @@ import type { AuthSocket, RoomJoinMessage } from '@shared/types'
 import { db } from '../db/supabase.js'
 import { getOrCreateRoom, rooms, decodeSV } from './yjsHandler.js'
 import { getMembership } from '../middleware/rbac.js'
+import { broadcastToRoom } from './hub.js'
 
 function send(socket: AuthSocket, msg: unknown) {
   if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(msg))
@@ -10,6 +11,8 @@ function send(socket: AuthSocket, msg: unknown) {
 
 export async function handleRoomJoin(socket: AuthSocket, payload: RoomJoinMessage['payload']) {
   let role = await getMembership(socket.userId, payload.roomId)
+  let isNewMember = false
+
   if (!role) {
     await db.from('room_members').insert({
       room_id: payload.roomId,
@@ -17,16 +20,28 @@ export async function handleRoomJoin(socket: AuthSocket, payload: RoomJoinMessag
       role: 'viewer'
     })
     role = 'viewer'
+    isNewMember = true
   }
+
+  // Store display name on the socket for later member list lookups
+  if (payload.displayName) socket.displayName = payload.displayName
 
   if (socket.roomId && socket.roomId !== payload.roomId) {
     rooms.get(socket.roomId)?.clients.delete(socket)
   }
 
-  // getOrCreateRoom logs "cache HIT" or "cold init" so we can see which path ran
   const room = await getOrCreateRoom(payload.roomId)
   room.clients.add(socket)
   socket.roomId = payload.roomId
+
+  // Broadcast new member to everyone already in the room (before adding self)
+  if (isNewMember) {
+    broadcastToRoom(payload.roomId, {
+      type: 'member:joined',
+      payload: { userId: socket.userId, role: 'viewer', displayName: payload.displayName }
+    }, socket)
+    console.log(`[replay] new viewer auto-joined room=${payload.roomId} user=${socket.userId}`)
+  }
 
   if (!room.sessionStartedAt) {
     const ts = new Date().toISOString()
@@ -45,19 +60,19 @@ export async function handleRoomJoin(socket: AuthSocket, payload: RoomJoinMessag
 
   console.log(
     `[replay] room:joined for ${payload.roomId}` +
+    `\n  user=${socket.userId} role=${role} displayName=${payload.displayName ?? '(none)'}` +
     `\n  clientSV (decoded): ${JSON.stringify(clientSVDecoded)}` +
     `\n  docSV    (decoded): ${JSON.stringify(docSV)}` +
     `\n  fullUpdate (no sv): ${fullUpdate.length} bytes` +
-    `\n  diff   (with sv):   ${diff.length} bytes` +
-    `\n  clientCount in doc: ${Object.keys(docSV).length}`
+    `\n  diff   (with sv):   ${diff.length} bytes`
   )
 
   if (diff.length <= 2) {
     console.warn('[replay] WARNING: diff is ≤2 bytes — server is sending no content to client.')
     if (fullUpdate.length > 2) {
-      console.warn('[replay] CAUSE: fullUpdate has', fullUpdate.length, 'bytes but client SV already covers it — client sent a stale/non-empty state vector. clientSV:', JSON.stringify(clientSVDecoded))
+      console.warn('[replay] CAUSE: client SV already covers it. clientSV:', JSON.stringify(clientSVDecoded))
     } else {
-      console.warn('[replay] CAUSE: server doc itself is empty (fullUpdate ≤2 bytes) — snapshot not loaded or room evicted.')
+      console.warn('[replay] CAUSE: server doc is empty — snapshot not loaded or room evicted.')
     }
   }
 
@@ -74,7 +89,7 @@ export async function handleRoomJoin(socket: AuthSocket, payload: RoomJoinMessag
       Date.now() - c.lastAwarenessAt < 10_000 &&
       c.userId
     )
-    .map(c => ({ userId: c.userId!, ...c.lastAwareness! }))
+    .map(c => ({ userId: c.userId!, displayName: c.displayName, ...c.lastAwareness! }))
 
   send(socket, {
     type: 'room:joined',

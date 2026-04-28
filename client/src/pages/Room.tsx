@@ -14,6 +14,7 @@ import { ContestedNodeOverlay } from '../components/ContestedNodeOverlay'
 import { ToolDock, AIStatusPill } from '../components/ToolDock'
 import { wsClient } from '../lib/wsClient'
 import { SoftAurora } from '../components/ui/SoftAurora'
+import { getDisplayName } from '../hooks/useAuth'
 
 function RoomInner({ roomId }: { roomId: string }) {
   useYjsBinding(roomId)
@@ -21,7 +22,7 @@ function RoomInner({ roomId }: { roomId: string }) {
   const { role } = useMyRole(roomId)
 
   useEffect(() => {
-    wsClient.send({ type: 'room:join', payload: { roomId, clientStateVector: [] } })
+    wsClient.send({ type: 'room:join', payload: { roomId, clientStateVector: [], displayName: getDisplayName() } })
   }, [roomId])
 
   useEffect(() => {

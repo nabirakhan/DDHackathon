@@ -1,13 +1,13 @@
 // client/src/hooks/useYjsBinding.ts
 import { useEffect, useRef } from 'react'
 import * as Y from 'yjs'
+import { toast } from 'sonner'
 import type { TLShapeId } from 'tldraw'
 import { useCanvas } from '../context/CanvasContext'
 import { wsClient } from '../lib/wsClient'
 
 interface PendingMeta { nodeId: string; textSnapshot?: string }
 
-// Extract plain text from a TipTap/ProseMirror JSON node (tldraw v3 richText format).
 function extractRichText(node: unknown): string {
   if (!node || typeof node !== 'object') return ''
   const n = node as { type?: string; text?: string; content?: unknown[] }
@@ -32,10 +32,13 @@ const NON_DOCUMENT_TYPES = new Set([
 ])
 
 export function useYjsBinding(roomId: string) {
-  const { store, ydoc, yShapes, setRoomReady } = useCanvas()
+  const { store, ydoc, yShapes, setRoomReady, editor } = useCanvas()
   const isApplyingRemote = useRef(false)
   const metaQueue = useRef<PendingMeta[]>([])
+  const editorRef = useRef(editor)
+  useEffect(() => { editorRef.current = editor }, [editor])
 
+  // Local store → Yjs → WS outbound
   useEffect(() => {
     return store.listen(({ changes }) => {
       if (isApplyingRemote.current) return
@@ -51,10 +54,7 @@ export function useYjsBinding(roomId: string) {
 
       for (const [id, shape, kind] of all) {
         const typeName = (shape as { typeName?: string })?.typeName ?? ''
-        if (NON_DOCUMENT_TYPES.has(typeName)) {
-          console.log('[yjs:filter] skipping non-document type:', typeName, id)
-          continue
-        }
+        if (NON_DOCUMENT_TYPES.has(typeName)) continue
 
         const text = extractShapeText(shape)
         metaQueue.current.push({ nodeId: id, textSnapshot: text })
@@ -66,77 +66,78 @@ export function useYjsBinding(roomId: string) {
     })
   }, [store, ydoc, yShapes])
 
+  // Yjs remote changes → tldraw store (Bug C: skip shape being actively edited)
   useEffect(() => {
     const observer = (event: Y.YMapEvent<any>) => {
-      console.log('[yjs:observe] fired — origin:', event.transaction.origin, 'keysChanged:', [...event.keysChanged], 'yShapes.size:', yShapes.size)
-      if (event.transaction.origin === 'local') {
-        console.log('[yjs:observe] skipping local origin')
-        return
-      }
+      console.log('[yjs:observe] fired — origin:', event.transaction.origin, 'keysChanged:', [...event.keysChanged])
+      if (event.transaction.origin === 'local') return
+
       isApplyingRemote.current = true
       try {
-        const removed = Array.from(event.keysChanged).filter(k => !yShapes.has(k)) as TLShapeId[]
-        if (removed.length) {
-          console.log('[yjs:observe] removing shapes:', removed)
-          store.remove(removed)
-        }
+        const editingId = editorRef.current?.getEditingShapeId()
+
+        const removed = Array.from(event.keysChanged)
+          .filter(k => !yShapes.has(k)) as TLShapeId[]
+        if (removed.length) store.remove(removed)
+
         const allShapes = Array.from(yShapes.values())
-        const typeBreakdown = allShapes.reduce((acc, s) => {
-          const tn = (s as { typeName?: string })?.typeName ?? 'unknown'
-          acc[tn] = (acc[tn] ?? 0) + 1
-          return acc
-        }, {} as Record<string, number>)
-        console.log('[yjs:observe] mergeRemoteChanges — total:', allShapes.length, 'types:', JSON.stringify(typeBreakdown))
+          .filter(s => (s as { id: string }).id !== editingId)
+
+        if (editingId) {
+          console.log('[yjs:observe] skipping active editing shape:', editingId)
+        }
+
         store.mergeRemoteChanges(() => {
           store.put(allShapes as Parameters<typeof store.put>[0])
         })
-        console.log('[yjs:observe] mergeRemoteChanges completed OK')
       } catch (err) {
-        console.error('[yjs:observe] ERROR in mergeRemoteChanges — isApplyingRemote reset via finally:', err)
+        console.error('[yjs:observe] ERROR in mergeRemoteChanges:', err)
       } finally {
         isApplyingRemote.current = false
-        console.log('[yjs:observe] isApplyingRemote reset to false')
       }
     }
     yShapes.observe(observer)
-    console.log('[yjs:observe] observer registered on yShapes')
     return () => yShapes.unobserve(observer)
   }, [yShapes, store])
 
+  // WS inbound → Yjs
   useEffect(() => {
-    console.log('[ws:inbound] registering listener — ydoc clientID:', ydoc.clientID)
     const unsub = wsClient.on((msg) => {
       if (msg.type === 'mutation:broadcast') {
         const bytes = new Uint8Array(msg.payload.yjsUpdate)
-        console.log('[ws:inbound] mutation:broadcast —', bytes.length, 'bytes, nodeId:', msg.payload.nodeId, '| yShapes.size before:', yShapes.size)
+        console.log('[ws:inbound] mutation:broadcast —', bytes.length, 'bytes, nodeId:', msg.payload.nodeId)
         try {
           Y.applyUpdate(ydoc, bytes, 'remote')
-          console.log('[ws:inbound] applyUpdate OK — yShapes.size after:', yShapes.size)
         } catch (err) {
           console.error('[ws:inbound] applyUpdate threw:', err)
         }
       }
+
       if (msg.type === 'room:joined') {
         const bytes = new Uint8Array(msg.payload.yjsDiff)
-        console.log('[ws:inbound] room:joined — yjsDiff bytes:', bytes.length, '| yShapes.size before:', yShapes.size)
+        console.log('[ws:inbound] room:joined — yjsDiff bytes:', bytes.length)
         try {
           Y.applyUpdate(ydoc, bytes, 'remote')
-          console.log('[ws:inbound] room:joined applyUpdate OK — yShapes.size after:', yShapes.size)
         } catch (err) {
           console.error('[ws:inbound] room:joined applyUpdate threw:', err)
         }
-        // Render tldraw only after the server diff is applied so tldraw mounts
-        // into a store that already has the correct page ID — prevents the blank
-        // canvas caused by tldraw creating a fresh random page before the diff arrives.
         setRoomReady(true)
       }
+
+      if (msg.type === 'error:permission_denied') {
+        const code = msg.payload.code
+        if (code === 'INSUFFICIENT_ROLE') {
+          toast.error('You need contributor access to edit. Ask the lead to promote you.')
+        } else if (code === 'NODE_LOCKED') {
+          toast.warning('This node is locked as a decision.')
+        }
+        console.warn('[ws:inbound] permission denied:', code)
+      }
     })
-    return () => {
-      console.log('[ws:inbound] unregistering listener — should only happen on unmount')
-      unsub()
-    }
+    return unsub
   }, [ydoc, yShapes, setRoomReady])
 
+  // Yjs local updates → WS outbound
   useEffect(() => {
     const handler = (update: Uint8Array, origin: unknown) => {
       if (origin !== 'local') return

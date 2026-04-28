@@ -13,6 +13,7 @@ declare module 'ws' {
   interface WebSocket {
     userId?: string
     roomId?: string
+    displayName?: string
     lastAwarenessAt?: number
     lastAwareness?: AwarenessState
   }
@@ -21,6 +22,7 @@ declare module 'ws' {
 export type AuthSocket = import('ws').WebSocket & {
   userId: string
   roomId?: string
+  displayName?: string
   lastAwarenessAt?: number
   lastAwareness?: AwarenessState
 }
@@ -29,7 +31,7 @@ export type AuthMessage = { type: 'auth'; payload: { token: string } }
 export type AuthRefreshMessage = { type: 'auth:refresh'; payload: { token: string } }
 export type RoomJoinMessage = {
   type: 'room:join'
-  payload: { roomId: string; clientStateVector: number[] }
+  payload: { roomId: string; clientStateVector: number[]; displayName?: string }
 }
 export type MutationApplyMessage = {
   type: 'mutation:apply'
@@ -67,7 +69,7 @@ export type RoomJoinedMessage = {
     yjsDiff: number[]
     sessionStartedAt: string | null
     decisionCount: number
-    awarenessStates: Array<{ userId: string } & AwarenessState>
+    awarenessStates: Array<{ userId: string; displayName?: string } & AwarenessState>
   }
 }
 export type MutationBroadcastMessage = {
@@ -85,6 +87,14 @@ export type AwarenessPeerLeftMessage = {
 export type RoleChangedMessage = {
   type: 'role:changed'
   payload: { userId: string; newRole: UserRole }
+}
+export type MemberJoinedMessage = {
+  type: 'member:joined'
+  payload: { userId: string; role: UserRole; displayName?: string }
+}
+export type MemberRemovedMessage = {
+  type: 'member:removed'
+  payload: { userId: string }
 }
 export type NodeContestedMessage = {
   type: 'node:contested'
@@ -117,6 +127,7 @@ export type ErrorInternalMessage = { type: 'error:internal'; payload: Record<str
 
 export type WSServerMessage =
   | RoomJoinedMessage | MutationBroadcastMessage | AwarenessBroadcastMessage | AwarenessPeerLeftMessage
-  | RoleChangedMessage | NodeContestedMessage | NodeDecisionLockedMessage | VoteUpdatedMessage
+  | RoleChangedMessage | MemberJoinedMessage | MemberRemovedMessage
+  | NodeContestedMessage | NodeDecisionLockedMessage | VoteUpdatedMessage
   | TaskCreatedMessage | TaskUpdatedMessage | AuthRefreshedMessage
   | ErrorPermissionDeniedMessage | ErrorMalformedUpdateMessage | ErrorContestResolvedMessage | ErrorInternalMessage

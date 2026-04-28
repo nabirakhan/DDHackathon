@@ -66,10 +66,24 @@ export const wsClient = {
       console.log('[ws] closed — code:', ev.code, 'reason:', ev.reason, '| queued msgs:', pendingQueue.length)
       currentWs = null
       isAuthing = false
+      if (ev.code === 4001) {
+        console.error('[ws] auth rejected (4001) — redirecting to login')
+        window.location.href = '/login'
+        return
+      }
       setTimeout(() => wsClient.connect(url), backoff())
     }
 
     ws.onerror = () => ws.close()
+  },
+
+  disconnect() {
+    const ws = getWS()
+    if (ws) {
+      ws.onclose = null
+      ws.close()
+      currentWs = null
+    }
   },
 
   getReadyState: () => getWS()?.readyState ?? WebSocket.CLOSED,

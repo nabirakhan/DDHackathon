@@ -22,7 +22,10 @@ export default function App() {
   useEffect(() => {
     wsClient.connect(WS_URL)
     const stop = startKeepAlive(SERVER_URL)
-    return stop
+    return () => {
+      stop()
+      wsClient.disconnect()
+    }
   }, [])
 
   return (

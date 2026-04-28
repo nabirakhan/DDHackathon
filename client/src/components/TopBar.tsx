@@ -6,7 +6,7 @@ import { wsClient } from '../lib/wsClient'
 import { supabase } from '../lib/supabase'
 import { getDisplayName, useAuth } from '../hooks/useAuth'
 import { useMyRole } from '../hooks/useMyRole'
-import { Wifi, WifiOff, RefreshCw, Clock, CheckSquare, Zap, Users } from 'lucide-react'
+import { Wifi, WifiOff, RefreshCw, Clock, CheckSquare, Zap, Users, X } from 'lucide-react'
 import type { UserRole } from '@shared/types'
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL as string
@@ -40,7 +40,7 @@ function WsIndicator() {
   )
 }
 
-interface Member { user_id: string; role: UserRole }
+interface Member { user_id: string; role: UserRole; display_name: string | null }
 
 function MembersPanel({ roomId, myRole, myUserId, onClose }: {
   roomId: string
@@ -49,7 +49,6 @@ function MembersPanel({ roomId, myRole, myUserId, onClose }: {
   onClose: () => void
 }) {
   const [members, setMembers] = useState<Member[]>([])
-  const [peerNames, setPeerNames] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -69,11 +68,25 @@ function MembersPanel({ roomId, myRole, myUserId, onClose }: {
 
   useEffect(() => {
     return wsClient.on((msg) => {
-      if (msg.type === 'awareness:broadcast') {
-        setPeerNames(m => new Map(m).set(msg.payload.userId, msg.payload.name))
+      if (msg.type === 'member:joined') {
+        // Refetch to get the new member with accurate data
+        fetchMembers()
+      }
+      if (msg.type === 'member:removed') {
+        setMembers(ms => ms.filter(m => m.user_id !== msg.payload.userId))
       }
       if (msg.type === 'role:changed') {
-        setMembers(ms => ms.map(m => m.user_id === msg.payload.userId ? { ...m, role: msg.payload.newRole } : m))
+        setMembers(ms => ms.map(m =>
+          m.user_id === msg.payload.userId ? { ...m, role: msg.payload.newRole } : m
+        ))
+      }
+      if (msg.type === 'awareness:broadcast') {
+        // Update display name if we learned it from awareness
+        setMembers(ms => ms.map(m =>
+          m.user_id === msg.payload.userId && !m.display_name
+            ? { ...m, display_name: msg.payload.name }
+            : m
+        ))
       }
     })
   }, [])
@@ -89,20 +102,33 @@ function MembersPanel({ roomId, myRole, myUserId, onClose }: {
   const changeRole = async (targetUserId: string, newRole: UserRole) => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
-    const res = await fetch(`${SERVER_URL}/rooms/${roomId}/members/${targetUserId}/role`, {
+    await fetch(`${SERVER_URL}/rooms/${roomId}/members/${targetUserId}/role`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ role: newRole }),
     })
-    if (!res.ok) console.error('[members] role change failed', res.status)
-    // WS broadcast will update local state via role:changed
+  }
+
+  const removeMember = async (targetUserId: string) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const res = await fetch(`${SERVER_URL}/rooms/${roomId}/members/${targetUserId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+    if (res.ok) setMembers(ms => ms.filter(m => m.user_id !== targetUserId))
+  }
+
+  const displayName = (m: Member) => {
+    if (m.user_id === myUserId) return getDisplayName()
+    return m.display_name ?? `User_${m.user_id.slice(0, 6)}`
   }
 
   const roleBadgeStyle = (role: UserRole): React.CSSProperties => {
     const colors: Record<UserRole, [string, string]> = {
-      lead: ['rgba(91,122,158,0.25)', '#5B7A9E'],
-      contributor: ['rgba(184,134,11,0.2)', '#B8860B'],
-      viewer: ['rgba(139,134,128,0.2)', '#8B8680'],
+      lead: ['rgba(82,121,111,0.25)', '#84A98C'],
+      contributor: ['rgba(53,79,82,0.35)', '#52796F'],
+      viewer: ['rgba(202,210,197,0.08)', 'rgba(202,210,197,0.3)'],
     }
     const [bg, color] = colors[role]
     return { padding: '2px 8px', borderRadius: '999px', background: bg, border: `1px solid ${color}44`, fontFamily: 'DM Mono, monospace', fontSize: '9px', color, whiteSpace: 'nowrap' }
@@ -111,8 +137,8 @@ function MembersPanel({ roomId, myRole, myUserId, onClose }: {
   return (
     <div ref={panelRef} style={{
       position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-      width: '260px', zIndex: 100,
-      background: 'rgba(47, 62, 70, 0.95)',
+      width: '268px', zIndex: 100,
+      background: 'rgba(47, 62, 70, 0.97)',
       backdropFilter: 'blur(40px) saturate(160%)',
       WebkitBackdropFilter: 'blur(40px) saturate(160%)',
       border: '1px solid rgba(202,210,197,0.12)',
@@ -126,9 +152,7 @@ function MembersPanel({ roomId, myRole, myUserId, onClose }: {
       {loading ? (
         <div style={{ padding: '12px 4px', fontFamily: 'Inter, sans-serif', fontSize: '11px', color: 'rgba(202,210,197,0.3)' }}>Loading…</div>
       ) : members.map(m => {
-        const name = m.user_id === myUserId
-          ? getDisplayName()
-          : (peerNames.get(m.user_id) ?? m.user_id.slice(0, 10) + '…')
+        const name = displayName(m)
         const isMe = m.user_id === myUserId
         return (
           <div key={m.user_id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 4px', borderBottom: '1px solid rgba(202,210,197,0.05)' }}>
@@ -145,19 +169,32 @@ function MembersPanel({ roomId, myRole, myUserId, onClose }: {
                 {name}{isMe && <span style={{ color: 'rgba(202,210,197,0.35)', fontWeight: 400 }}> (you)</span>}
               </div>
             </div>
-            {myRole === 'lead' && !isMe && m.role !== 'lead' ? (
-              <select
-                value={m.role}
-                onChange={e => changeRole(m.user_id, e.target.value as UserRole)}
-                style={{
-                  background: 'rgba(47,62,70,0.8)', border: '1px solid rgba(202,210,197,0.15)',
-                  borderRadius: '6px', color: '#CAD2C5', fontFamily: 'DM Mono, monospace',
-                  fontSize: '9px', padding: '2px 4px', cursor: 'pointer',
-                }}
-              >
-                <option value="contributor">contributor</option>
-                <option value="viewer">viewer</option>
-              </select>
+            {myRole === 'lead' && !isMe ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {m.role !== 'lead' && (
+                  <select
+                    value={m.role}
+                    onChange={e => changeRole(m.user_id, e.target.value as UserRole)}
+                    style={{
+                      background: 'rgba(47,62,70,0.8)', border: '1px solid rgba(202,210,197,0.15)',
+                      borderRadius: '6px', color: '#CAD2C5', fontFamily: 'DM Mono, monospace',
+                      fontSize: '9px', padding: '2px 4px', cursor: 'pointer',
+                    }}
+                  >
+                    <option value="contributor">contributor</option>
+                    <option value="viewer">viewer</option>
+                  </select>
+                )}
+                <button
+                  onClick={() => removeMember(m.user_id)}
+                  title="Remove member"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(239,68,68,0.5)', padding: '2px', display: 'flex', alignItems: 'center', transition: 'color 0.15s' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
+                  onMouseLeave={e => (e.currentTarget.style.color = 'rgba(239,68,68,0.5)')}
+                >
+                  <X size={11} />
+                </button>
+              </div>
             ) : (
               <span style={roleBadgeStyle(m.role)}>{m.role}</span>
             )}
@@ -190,6 +227,8 @@ export function TopBar({ roomId }: { roomId: string }) {
       if (msg.type === 'room:joined') setPeerCount(msg.payload.awarenessStates.length)
       if (msg.type === 'awareness:broadcast') setPeerCount(c => Math.max(c, 1))
       if (msg.type === 'awareness:peer_left') setPeerCount(c => Math.max(0, c - 1))
+      if (msg.type === 'member:joined') setPeerCount(c => c + 1)
+      if (msg.type === 'member:removed') setPeerCount(c => Math.max(0, c - 1))
     })
   }, [])
 
