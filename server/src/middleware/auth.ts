@@ -14,7 +14,7 @@ export function attachAuth(wss: WebSocketServer) {
     let authenticated = false
     const timer = setTimeout(() => {
       if (!authenticated) socket.close(4001, 'Auth timeout')
-    }, 500)
+    }, 5000)
 
     socket.on('message', async (data: Buffer | ArrayBuffer | Buffer[]) => {
       let msg: { type: string; payload: { token: string } }
@@ -28,8 +28,13 @@ export function attachAuth(wss: WebSocketServer) {
         authenticated = true
         if (msg.type === 'auth:refresh') {
           if (socket.roomId) roleCache.delete(`${socket.userId}:${socket.roomId}`)
-          send(socket, { type: 'auth:refreshed' })
         }
+        // Always send auth:refreshed so the client knows it's safe to drain its
+        // pending message queue (room:join etc). Without this, the client drains
+        // immediately in ws.onopen and room:join races against the auth await,
+        // causing the server to close the socket with 4001 "Not authenticated".
+        send(socket, { type: 'auth:refreshed' })
+        console.log('[auth] authenticated userId:', socket.userId, 'type:', msg.type)
         return
       }
 

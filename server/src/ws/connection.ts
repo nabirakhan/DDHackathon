@@ -10,6 +10,7 @@ function send(socket: AuthSocket, msg: unknown) {
 }
 
 export async function handleMessage(socket: AuthSocket, msg: WSClientMessage) {
+  console.log('WS message received:', msg.type, 'from user:', socket.userId)
   switch (msg.type) {
     case 'room:join': {
       await handleRoomJoin(socket, msg.payload)

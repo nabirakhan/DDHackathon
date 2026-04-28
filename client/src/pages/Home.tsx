@@ -41,14 +41,20 @@ export default function Home() {
 
   const fetchRooms = async () => {
     setLoading(true)
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    const res = await fetch(`${SERVER_URL}/rooms`, {
-      headers: { Authorization: `Bearer ${session.access_token}` }
-    })
-    const json = await res.json()
-    setRooms(json.rooms ?? [])
-    setLoading(false)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch(`${SERVER_URL}/rooms`, {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+      const json = await res.json()
+      setRooms(json.rooms ?? [])
+    } catch (err) {
+      console.error('[home] fetchRooms failed:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const createRoom = async (e: React.FormEvent) => {

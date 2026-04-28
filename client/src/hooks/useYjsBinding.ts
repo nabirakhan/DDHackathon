@@ -6,6 +6,16 @@ import { wsClient } from '../lib/wsClient'
 
 interface PendingMeta { nodeId: string; textSnapshot?: string }
 
+// tldraw session/presence types that are device-local and must never be synced via Yjs.
+// Only 'document'-scoped records (shape, page, asset, binding) belong in the shared doc.
+const NON_DOCUMENT_TYPES = new Set([
+  'pointer',
+  'instance',
+  'instance_page_state',
+  'instance_presence',
+  'camera',
+])
+
 export function useYjsBinding(roomId: string) {
   const { store, ydoc, yShapes } = useCanvas()
   const isApplyingRemote = useRef(false)
@@ -26,6 +36,12 @@ export function useYjsBinding(roomId: string) {
       )
 
       for (const [id, shape, kind] of all) {
+        const typeName = (shape as { typeName?: string })?.typeName ?? ''
+        if (NON_DOCUMENT_TYPES.has(typeName)) {
+          console.log('[yjs:filter] skipping non-document type:', typeName, id)
+          continue
+        }
+
         const text = ((shape as { props?: { text?: string } })?.props?.text)
         metaQueue.current.push({ nodeId: id, textSnapshot: text })
         ydoc.transact(() => {
@@ -36,20 +52,71 @@ export function useYjsBinding(roomId: string) {
     })
   }, [store, ydoc, yShapes])
 
-  // Yjs → tldraw (handle removals explicitly)
+  // Yjs → tldraw
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const observer = (event: Y.YMapEvent<any>) => {
-      if (event.transaction.origin === 'local') return
+      console.log('[yjs:observe] fired — origin:', event.transaction.origin, 'keysChanged:', [...event.keysChanged], 'yShapes.size:', yShapes.size)
+      if (event.transaction.origin === 'local') {
+        console.log('[yjs:observe] skipping local origin')
+        return
+      }
       isApplyingRemote.current = true
-      const removed = Array.from(event.keysChanged).filter(k => !yShapes.has(k)) as TLShapeId[]
-      if (removed.length) store.remove(removed)
-      store.put(Array.from(yShapes.values()) as Parameters<typeof store.put>[0])
-      isApplyingRemote.current = false
+      try {
+        const removed = Array.from(event.keysChanged).filter(k => !yShapes.has(k)) as TLShapeId[]
+        if (removed.length) {
+          console.log('[yjs:observe] removing shapes:', removed)
+          store.remove(removed)
+        }
+        const allShapes = Array.from(yShapes.values())
+        const typeBreakdown = allShapes.reduce((acc, s) => {
+          const tn = (s as { typeName?: string })?.typeName ?? 'unknown'
+          acc[tn] = (acc[tn] ?? 0) + 1
+          return acc
+        }, {} as Record<string, number>)
+        console.log('[yjs:observe] mergeRemoteChanges — total:', allShapes.length, 'types:', JSON.stringify(typeBreakdown))
+        store.mergeRemoteChanges(() => {
+          store.put(allShapes as Parameters<typeof store.put>[0])
+        })
+        console.log('[yjs:observe] mergeRemoteChanges completed OK')
+      } catch (err) {
+        console.error('[yjs:observe] ERROR in mergeRemoteChanges — isApplyingRemote reset via finally:', err)
+      } finally {
+        isApplyingRemote.current = false
+        console.log('[yjs:observe] isApplyingRemote reset to false')
+      }
     }
     yShapes.observe(observer)
+    console.log('[yjs:observe] observer registered on yShapes')
     return () => yShapes.unobserve(observer)
   }, [yShapes, store])
+
+  // Apply remote updates from other clients and initial room state
+  useEffect(() => {
+    console.log('[ws:inbound] registering wsClient listener, ydoc clientID:', ydoc.clientID)
+    return wsClient.on((msg) => {
+      if (msg.type === 'mutation:broadcast') {
+        const bytes = new Uint8Array(msg.payload.yjsUpdate)
+        console.log('[ws:inbound] mutation:broadcast —', bytes.length, 'bytes, nodeId:', msg.payload.nodeId, '| yShapes.size before:', yShapes.size)
+        try {
+          Y.applyUpdate(ydoc, bytes, 'remote')
+          console.log('[ws:inbound] applyUpdate OK — yShapes.size after:', yShapes.size)
+        } catch (err) {
+          console.error('[ws:inbound] applyUpdate threw:', err)
+        }
+      }
+      if (msg.type === 'room:joined') {
+        const bytes = new Uint8Array(msg.payload.yjsDiff)
+        console.log('[ws:inbound] room:joined — yjsDiff bytes:', bytes.length, '| yShapes.size before:', yShapes.size)
+        try {
+          Y.applyUpdate(ydoc, bytes, 'remote')
+          console.log('[ws:inbound] room:joined applyUpdate OK — yShapes.size after:', yShapes.size)
+        } catch (err) {
+          console.error('[ws:inbound] room:joined applyUpdate threw:', err)
+        }
+      }
+    })
+  }, [ydoc, yShapes])
 
   // Send local updates with shifted metadata
   useEffect(() => {
@@ -57,6 +124,7 @@ export function useYjsBinding(roomId: string) {
       if (origin !== 'local') return
       const meta = metaQueue.current.shift()
       if (!meta) return
+      console.log('[ws:outbound] mutation:apply —', update.length, 'bytes, nodeId:', meta.nodeId)
       wsClient.send({
         type: 'mutation:apply',
         payload: {

@@ -10,9 +10,13 @@ router.post('/', requireAuth, async (req: any, res: any) => {
   const { name } = req.body
   if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Invalid name' })
   const { data: room, error } = await db.from('rooms')
-    .insert({ name, created_by: req.userId }).select().single()
-  if (error || !room) return res.status(500).json({ error: 'Internal server error' })
-  await db.from('room_members').insert({ room_id: room.id, user_id: req.userId, role: 'lead' })
+      .insert({ name, created_by: req.userId }).select().single()
+    if (error || !room) {
+      console.error('Room insert error:', error)
+      return res.status(500).json({ error: 'Internal server error' })
+    }
+    const { error: memberError } = await db.from('room_members').insert({ room_id: room.id, user_id: req.userId, role: 'lead' })
+    if (memberError) console.error('Member insert error:', memberError)
   res.json({ room })
 })
 

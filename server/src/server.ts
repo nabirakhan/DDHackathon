@@ -11,6 +11,13 @@ import { attachAuth } from './middleware/auth.js'
 
 const app = express()
 
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception (server kept alive):', err)
+})
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection (server kept alive):', err)
+})
+
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,

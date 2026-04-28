@@ -16,9 +16,14 @@ function RoomInner({ roomId }: { roomId: string }) {
   useYjsBinding(roomId)
 
   useEffect(() => {
+    // clientStateVector is always [] because the ydoc is freshly created on every
+    // mount (useMemo with [] deps in CanvasContext) — there is no stale local state.
+    // The server interprets [] as "client has nothing" and sends the full doc state.
+    const sv: number[] = []
+    console.log('[room:join] sending room:join — roomId:', roomId, 'clientStateVector:', sv, '| wsState:', wsClient.getReadyState())
     wsClient.send({
       type: 'room:join',
-      payload: { roomId, clientStateVector: [] }
+      payload: { roomId, clientStateVector: sv }
     })
   }, [roomId])
 
