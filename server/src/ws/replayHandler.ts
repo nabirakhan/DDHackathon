@@ -14,9 +14,9 @@ export async function handleRoomJoin(socket: AuthSocket, payload: RoomJoinMessag
     await db.from('room_members').insert({
       room_id: payload.roomId,
       user_id: socket.userId,
-      role: 'contributor'
+      role: 'viewer'
     })
-    role = 'contributor'
+    role = 'viewer'
   }
 
   if (socket.roomId && socket.roomId !== payload.roomId) {

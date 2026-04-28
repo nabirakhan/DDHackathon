@@ -104,8 +104,8 @@ export function useYjsBinding(roomId: string) {
   }, [yShapes, store])
 
   useEffect(() => {
-    console.log('[ws:inbound] registering wsClient listener, ydoc clientID:', ydoc.clientID)
-    return wsClient.on((msg) => {
+    console.log('[ws:inbound] registering listener — ydoc clientID:', ydoc.clientID)
+    const unsub = wsClient.on((msg) => {
       if (msg.type === 'mutation:broadcast') {
         const bytes = new Uint8Array(msg.payload.yjsUpdate)
         console.log('[ws:inbound] mutation:broadcast —', bytes.length, 'bytes, nodeId:', msg.payload.nodeId, '| yShapes.size before:', yShapes.size)
@@ -131,6 +131,10 @@ export function useYjsBinding(roomId: string) {
         setRoomReady(true)
       }
     })
+    return () => {
+      console.log('[ws:inbound] unregistering listener — should only happen on unmount')
+      unsub()
+    }
   }, [ydoc, yShapes, setRoomReady])
 
   useEffect(() => {
