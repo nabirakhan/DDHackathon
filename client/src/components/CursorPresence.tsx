@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { throttle } from 'lodash'
 import { motion, AnimatePresence } from 'framer-motion'
 import { wsClient } from '../lib/wsClient'
-import { useAuth } from '../hooks/useAuth'
+import { useAuth, getDisplayName } from '../hooks/useAuth'
 import type { AwarenessState } from '@shared/types'
 
 interface PeerCursor extends AwarenessState { userId: string }
@@ -30,7 +30,7 @@ export function CursorPresence({ roomId: _roomId }: { roomId: string }) {
         type: 'awareness:update',
         payload: {
           cursor,
-          name: user?.email?.split('@')[0] ?? 'anon',
+          name: getDisplayName(),
           color: stringToColor(user?.id ?? 'a')
         }
       })
