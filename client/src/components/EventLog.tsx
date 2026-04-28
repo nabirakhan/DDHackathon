@@ -1,40 +1,85 @@
-// client/src/components/EventLog.tsx
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { wsClient } from '../lib/wsClient'
+import { supabase } from '../lib/supabase'
+
+const SERVER_URL = import.meta.env.VITE_SERVER_URL as string
 
 interface EventRow {
-  id: number
+  id: number | string
   event_type: string
   node_id: string | null
   timestamp: string
 }
 
 const typeColor: Record<string, string> = {
-  'node:updated':    '#84A98C',
-  'decision:locked': '#52796F',
-  'task:created':    '#CAD2C5',
+  'node:created': '#84A98C',
+  'node:updated': '#52796F',
+  'node:deleted': '#ef4444',
+  'decision:locked': '#fbbf24',
+  'task:created': '#CAD2C5',
+  'permission_denied': '#f97316',
 }
 
 const typeLabel: Record<string, string> = {
-  'node:updated':    'edit',
+  'node:created': 'create',
+  'node:updated': 'edit',
+  'node:deleted': 'delete',
   'decision:locked': 'locked',
-  'task:created':    'task',
+  'task:created': 'task',
+  'permission_denied': 'denied',
 }
 
-export function EventLog({ roomId: _roomId }: { roomId: string }) {
+export function EventLog({ roomId }: { roomId: string }) {
   const [events, setEvents] = useState<EventRow[]>([])
   const [collapsed, setCollapsed] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    let cancelled = false
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session || cancelled) return
+      fetch(`${SERVER_URL}/rooms/${roomId}/events?limit=50`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+        .then(r => r.json())
+        .then(json => {
+          if (cancelled) return
+          const rows: EventRow[] = (json.events ?? []).map((e: any) => ({
+            id: e.id,
+            event_type: e.event_type,
+            node_id: e.node_id,
+            timestamp: e.timestamp,
+          }))
+          setEvents(rows)
+        })
+        .catch(() => {})
+    })
+    return () => { cancelled = true }
+  }, [roomId])
+
+  useEffect(() => {
     return wsClient.on((msg) => {
-      const add = (type: string, nodeId: string | null = null) => {
-        setEvents(e => [{ id: Date.now() + Math.random(), event_type: type, node_id: nodeId, timestamp: new Date().toISOString() }, ...e].slice(0, 100))
+      if (msg.type === 'mutation:broadcast' && msg.payload.eventType) {
+        const eventType = msg.payload.eventType
+        const nodeId = msg.payload.nodeId
+        setEvents((prev: EventRow[]) => [
+          { id: Date.now() + Math.random(), event_type: eventType, node_id: nodeId, timestamp: new Date().toISOString() },
+          ...prev,
+        ].slice(0, 100))
       }
-      if (msg.type === 'mutation:broadcast') add('node:updated', msg.payload.nodeId)
-      if (msg.type === 'node:decision_locked') add('decision:locked', msg.payload.nodeId)
-      if (msg.type === 'task:created') add('task:created', msg.payload.task.source_node_id)
+      if (msg.type === 'node:decision_locked') {
+        setEvents((prev: EventRow[]) => [
+          { id: Date.now() + Math.random(), event_type: 'decision:locked', node_id: msg.payload.nodeId, timestamp: new Date().toISOString() },
+          ...prev,
+        ].slice(0, 100))
+      }
+      if (msg.type === 'task:created') {
+        setEvents((prev: EventRow[]) => [
+          { id: Date.now() + Math.random(), event_type: 'task:created', node_id: msg.payload.task.source_node_id, timestamp: new Date().toISOString() },
+          ...prev,
+        ].slice(0, 100))
+      }
     })
   }, [])
 
@@ -80,7 +125,7 @@ export function EventLog({ roomId: _roomId }: { roomId: string }) {
             </div>
           ) : (
             <AnimatePresence initial={false}>
-              {events.map(e => {
+              {events.map((e: EventRow) => {
                 const color = typeColor[e.event_type] ?? '#84A98C'
                 const label = typeLabel[e.event_type] ?? e.event_type
                 return (
@@ -99,7 +144,7 @@ export function EventLog({ roomId: _roomId }: { roomId: string }) {
                       </span>
                       {e.node_id && (
                         <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', color: 'rgba(202,210,197,0.3)' }}>
-                          #{e.node_id.slice(0, 6)}
+                          #{e.node_id.slice(-6)}
                         </span>
                       )}
                     </div>

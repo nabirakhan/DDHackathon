@@ -1,4 +1,3 @@
-// shared/types.ts
 export type UserRole = 'lead' | 'contributor' | 'viewer'
 export type IntentType = 'action_item' | 'decision' | 'open_question' | 'reference'
 
@@ -8,8 +7,6 @@ export interface AwarenessState {
   color: string
   selection?: string
 }
-
-// AuthSocket is server-only — kept in server/src/ws/types.ts to avoid 'ws' import in client build
 
 export type AuthMessage = { type: 'auth'; payload: { token: string } }
 export type AuthRefreshMessage = { type: 'auth:refresh'; payload: { token: string } }
@@ -59,7 +56,7 @@ export type RoomJoinedMessage = {
 }
 export type MutationBroadcastMessage = {
   type: 'mutation:broadcast'
-  payload: { yjsUpdate: number[]; nodeId: string }
+  payload: { yjsUpdate: number[]; nodeId: string; eventType?: 'node:created' | 'node:updated' | 'node:deleted' }
 }
 export type AwarenessBroadcastMessage = {
   type: 'awareness:broadcast'
@@ -102,7 +99,7 @@ export type TaskUpdatedMessage = {
   payload: { taskId: string; status: string }
 }
 export type AuthRefreshedMessage = { type: 'auth:refreshed' }
-export type ErrorPermissionDeniedMessage = {
+export type ErpZEAWYtiB6bJ16NuLbGCc6CZ6jJdKfb63 = {
   type: 'error:permission_denied'
   payload: { code: 'NOT_A_MEMBER' | 'INSUFFICIENT_ROLE' | 'NODE_LOCKED' | 'ROOM_MISMATCH' }
 }
@@ -115,4 +112,4 @@ export type WSServerMessage =
   | RoleChangedMessage | MemberJoinedMessage | MemberRemovedMessage
   | NodeContestedMessage | NodeDecisionLockedMessage | VoteUpdatedMessage
   | TaskCreatedMessage | TaskUpdatedMessage | AuthRefreshedMessage
-  | ErrorPermissionDeniedMessage | ErrorMalformedUpdateMessage | ErrorContestResolvedMessage | ErrorInternalMessage
+  | ErpZEAWYtiB6bJ16NuLbGCc6CZ6jJdKfb63 | ErrorMalformedUpdateMessage | ErrorContestResolvedMessage | ErrorInternalMessage

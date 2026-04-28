@@ -9,99 +9,110 @@ interface TLShapeLocal {
   [key: string]: unknown
 }
 
-function extractRichText(node: unknown): string {
-  if (!node || typeof node !== 'object') return ''
-  const n = node as { type?: string; text?: string; content?: unknown[] }
-  if (n.type === 'text') return n.text ?? ''
-  return (n.content ?? []).map(extractRichText).join('')
-}
-
 function extractShapeText(shape: TLShapeLocal | undefined): string | undefined {
   const props = shape?.props
   if (!props) return undefined
   if (typeof props.text === 'string' && props.text.trim()) return props.text.trim()
-  if (props.richText) return extractRichText(props.richText).trim() || undefined
   return undefined
 }
 
-interface DebounceEntry { timer: ReturnType<typeof setTimeout>; editCount: number }
-const debounces = new Map<string, DebounceEntry>()
-const lastClassifiedText = new Map<string, string>()
+function isActionItem(text: string): boolean {
+  const lower = text.toLowerCase()
+  
+  const actionKeywords = ['todo', 'to do', 'task:', 'action:', 'need to', 'must', 'should',
+    'responsible', 'assign', 'deadline', 'fix', 'implement', 'create', 'build', 'make']
+  
+  for (const keyword of actionKeywords) {
+    if (lower.includes(keyword)) {
+      return true
+    }
+  }
+  
+  return false
+}
+
+const pendingTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const lastProcessedText = new Map<string, { text: string; timestamp: number }>()
 
 export function schedule(roomId: string, nodeId: string, userId: string) {
   const key = `${roomId}:${nodeId}`
-  const existing = debounces.get(key)
   
-  if (existing) {
-    clearTimeout(existing.timer)
-    existing.editCount++
-    debounces.set(key, existing)
-  } else {
-    debounces.set(key, { timer: setTimeout(() => {}, 0), editCount: 1 })
+  if (pendingTimers.has(key)) {
+    clearTimeout(pendingTimers.get(key)!)
   }
-
+  
   const timer = setTimeout(async () => {
     try {
-      const entry = debounces.get(key)
-      const totalEdits = entry?.editCount || 1
-      
       const room = getRoom(roomId)
-      const yShapes = room?.doc.getMap<TLShapeLocal>('shapes')
-      const shape = yShapes?.get(nodeId) as TLShapeLocal | undefined
+      if (!room) {
+        pendingTimers.delete(key)
+        return
+      }
+      
+      const yShapes = room.doc.getMap<TLShapeLocal>('shapes')
+      const shape = yShapes.get(nodeId) as TLShapeLocal | undefined
       const text = extractShapeText(shape)
 
-      if (!text || text.length < 5) {
+      if (!text || text.length < 3) {
+        pendingTimers.delete(key)
         return
       }
 
-      if (lastClassifiedText.get(nodeId) === text) {
+      const last = lastProcessedText.get(nodeId)
+      if (last && last.text === text && Date.now() - last.timestamp < 10000) {
+        pendingTimers.delete(key)
         return
       }
-
-      const type = await classify(userId, text)
-      lastClassifiedText.set(nodeId, text)
-
-      if (type !== 'action_item') {
+      
+      const isAction = isActionItem(text)
+      
+      if (!isAction) {
+        lastProcessedText.set(nodeId, { text, timestamp: Date.now() })
+        pendingTimers.delete(key)
         return
       }
 
       const { data: existingTask } = await db.from('tasks')
-        .select('id')
+        .select('id, text')
         .eq('source_node_id', nodeId)
         .eq('room_id', roomId)
         .eq('status', 'open')
         .maybeSingle()
 
       if (existingTask) {
-        return
+        if (existingTask.text !== text) {
+          await db.from('tasks').update({ text }).eq('id', existingTask.id)
+          broadcastToRoom(roomId, { 
+            type: 'task:updated', 
+            payload: { taskId: existingTask.id, status: 'open' } 
+          })
+        }
+      } else {
+        const { data: task, error } = await db.from('tasks').insert({
+          room_id: roomId,
+          source_node_id: nodeId,
+          text: text,
+          author_id: userId,
+          status: 'open'
+        }).select().single()
+
+        if (error) {
+          console.error('[task] Insert failed:', error)
+          pendingTimers.delete(key)
+          return
+        }
+
+        broadcastToRoom(roomId, { type: 'task:created', payload: { task } })
       }
-
-      const { data: latestEvent } = await db.from('events')
-        .select('id')
-        .eq('room_id', roomId)
-        .eq('node_id', nodeId)
-        .order('id', { ascending: false })
-        .limit(1)
-        .single()
-
-      const { data: task, error } = await db.from('tasks').insert({
-        room_id: roomId,
-        source_event_id: latestEvent?.id ?? null,
-        source_node_id: nodeId,
-        text,
-        author_id: userId,
-        metadata: { editCount: totalEdits }
-      }).select().single()
-
-      if (error || !task) {
-        return
-      }
-
-      broadcastToRoom(roomId, { type: 'task:created', payload: { task } })
+      
+      lastProcessedText.set(nodeId, { text, timestamp: Date.now() })
+      
+    } catch (err) {
+      console.error('[task] Error:', err)
     } finally {
-      debounces.delete(key)
+      pendingTimers.delete(key)
     }
   }, 3000)
 
-  debounces.set(key, { timer, editCount: existing?.editCount || 1 })
+  pendingTimers.set(key, timer)
 }

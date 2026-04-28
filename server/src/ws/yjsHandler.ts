@@ -192,13 +192,13 @@ export async function applyMutation(
 
   if (eventResult && eventResult.id && textSnapshot && textSnapshot.length > 0) {
     scheduleTask(roomId, nodeId, fromSocket.userId)
-    await recordEdit(roomId, nodeId, fromSocket.userId, textSnapshot, room.editWindows)
+    recordEdit(roomId, nodeId, fromSocket.userId, textSnapshot, room.editWindows)
   }
 
   scheduleSnapshot(roomId, room.doc)
 
   broadcastToRoom(roomId, {
     type: 'mutation:broadcast',
-    payload: { yjsUpdate: Array.from(yjsUpdate), nodeId }
+    payload: { yjsUpdate: Array.from(yjsUpdate), nodeId, eventType }
   }, fromSocket)
 }
