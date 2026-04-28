@@ -27,6 +27,9 @@ function extractShapeText(shape: TLShapeLocal | undefined): string | undefined {
 
 interface DebounceEntry { timer: ReturnType<typeof setTimeout> }
 const debounces = new Map<string, DebounceEntry>()
+// Tracks the last text that was classified per node so repeated edits that settle
+// on the same text don't re-classify and potentially create duplicate tasks.
+const lastClassifiedText = new Map<string, string>()
 
 export function schedule(roomId: string, nodeId: string, userId: string) {
   const key = `${roomId}:${nodeId}`
@@ -47,6 +50,11 @@ export function schedule(roomId: string, nodeId: string, userId: string) {
         return
       }
 
+      if (lastClassifiedText.get(nodeId) === text) {
+        console.log(`[task:trigger] skipping — text unchanged since last classification`)
+        return
+      }
+
       const { data: latestEvent } = await db.from('events')
         .select('id')
         .eq('room_id', roomId)
@@ -57,6 +65,7 @@ export function schedule(roomId: string, nodeId: string, userId: string) {
 
       console.log(`[task:classify] starting for nodeId=${nodeId} text="${text.slice(0, 60)}"`)
       const type = await classify(userId, text)
+      lastClassifiedText.set(nodeId, text)
       console.log(`[task:result] nodeId=${nodeId} classification="${type}"`)
 
       if (type !== 'action_item') {

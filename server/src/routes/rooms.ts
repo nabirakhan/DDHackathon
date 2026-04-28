@@ -76,4 +76,17 @@ router.put('/:id/members/:userId/role', requireAuth, async (req: any, res: any) 
   res.json({ ok: true })
 })
 
+router.patch('/:id/tasks/:taskId', requireAuth, async (req: any, res: any) => {
+  const { id: roomId, taskId } = req.params
+  const { status } = req.body
+  if (!['open', 'done'].includes(status)) return res.status(400).json({ error: 'Invalid status' })
+  const role = await getMembership(req.userId, roomId)
+  if (!role) return res.status(403).json({ error: 'Not a member' })
+  const { error } = await db.from('tasks').update({ status }).eq('id', taskId).eq('room_id', roomId)
+  if (error) return res.status(500).json({ error: 'Internal server error' })
+  console.log(`[task:done] task ${taskId} marked ${status} by ${req.userId}`)
+  broadcastToRoom(roomId, { type: 'task:updated', payload: { taskId, status } })
+  res.json({ ok: true })
+})
+
 export default router

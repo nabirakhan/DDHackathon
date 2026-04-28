@@ -102,6 +102,10 @@ export type TaskCreatedMessage = {
   type: 'task:created'
   payload: { task: { id: string; room_id: string; source_node_id: string; text: string; author_id: string; created_at: string; status: string } }
 }
+export type TaskUpdatedMessage = {
+  type: 'task:updated'
+  payload: { taskId: string; status: string }
+}
 export type AuthRefreshedMessage = { type: 'auth:refreshed' }
 export type ErrorPermissionDeniedMessage = {
   type: 'error:permission_denied'
@@ -114,5 +118,5 @@ export type ErrorInternalMessage = { type: 'error:internal'; payload: Record<str
 export type WSServerMessage =
   | RoomJoinedMessage | MutationBroadcastMessage | AwarenessBroadcastMessage | AwarenessPeerLeftMessage
   | RoleChangedMessage | NodeContestedMessage | NodeDecisionLockedMessage | VoteUpdatedMessage
-  | TaskCreatedMessage | AuthRefreshedMessage
+  | TaskCreatedMessage | TaskUpdatedMessage | AuthRefreshedMessage
   | ErrorPermissionDeniedMessage | ErrorMalformedUpdateMessage | ErrorContestResolvedMessage | ErrorInternalMessage

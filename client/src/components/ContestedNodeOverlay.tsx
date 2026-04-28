@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { wsClient } from '../lib/wsClient'
 import { Swords } from 'lucide-react'
+import { useMyRole } from '../hooks/useMyRole'
 
 interface Contest {
   nodeId: string
@@ -11,6 +12,7 @@ interface Contest {
 
 export function ContestedNodeOverlay({ roomId }: { roomId: string }) {
   const [contests, setContests] = useState<Map<string, Contest>>(new Map())
+  const { role } = useMyRole(roomId)
 
   useEffect(() => {
     return wsClient.on((msg) => {
@@ -112,27 +114,29 @@ export function ContestedNodeOverlay({ roomId }: { roomId: string }) {
               ))}
             </div>
 
-            <button
-              onClick={() => wsClient.send({
-                type: 'decision:lock',
-                payload: { roomId, nodeId: c.nodeId }
-              })}
-              style={{
-                width: '100%',
-                padding: '8px 0',
-                background: 'linear-gradient(135deg, #3E5974, #5D5646)',
-                border: '1px solid rgba(200, 188, 168, 0.15)',
-                borderRadius: '999px',
-                color: '#E8E0D0',
-                fontFamily: 'Syne, sans-serif',
-                fontSize: '12px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                letterSpacing: '0.5px',
-              }}
-            >
-              Lock Decision (Lead)
-            </button>
+            {role === 'lead' && (
+              <button
+                onClick={() => wsClient.send({
+                  type: 'decision:lock',
+                  payload: { roomId, nodeId: c.nodeId }
+                })}
+                style={{
+                  width: '100%',
+                  padding: '8px 0',
+                  background: 'linear-gradient(135deg, #3E5974, #5D5646)',
+                  border: '1px solid rgba(200, 188, 168, 0.15)',
+                  borderRadius: '999px',
+                  color: '#E8E0D0',
+                  fontFamily: 'Syne, sans-serif',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  letterSpacing: '0.5px',
+                }}
+              >
+                Lock Decision
+              </button>
+            )}
           </motion.div>
         ))}
       </AnimatePresence>

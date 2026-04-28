@@ -2,8 +2,9 @@
 import { useParams } from 'react-router-dom'
 import { useEffect } from 'react'
 import { Toaster } from 'sonner'
-import { CanvasProvider, CanvasMount } from '../context/CanvasContext'
+import { CanvasProvider, CanvasMount, useEditor } from '../context/CanvasContext'
 import { useYjsBinding } from '../hooks/useYjsBinding'
+import { useMyRole } from '../hooks/useMyRole'
 import { ConnectionBanner } from '../components/ConnectionBanner'
 import { CursorPresence } from '../components/CursorPresence'
 import { TaskBoard } from '../components/TaskBoard'
@@ -16,10 +17,18 @@ import { SoftAurora } from '../components/ui/SoftAurora'
 
 function RoomInner({ roomId }: { roomId: string }) {
   useYjsBinding(roomId)
+  const editor = useEditor()
+  const { role } = useMyRole(roomId)
 
   useEffect(() => {
     wsClient.send({ type: 'room:join', payload: { roomId, clientStateVector: [] } })
   }, [roomId])
+
+  useEffect(() => {
+    if (!editor || !role) return
+    editor.updateInstanceState({ isReadonly: role === 'viewer' })
+    console.log(`[role] tldraw readOnly=${role === 'viewer'} (role=${role})`)
+  }, [editor, role])
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#141f1f' }}>
