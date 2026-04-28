@@ -1,4 +1,5 @@
-import type { AuthSocket, WSClientMessage } from '@shared/types'
+import type { WSClientMessage } from '@shared/types'
+import type { AuthSocket } from './types.js'
 import { db } from '../db/supabase.js'
 import { checkPermission, getMembership, aclCache } from '../middleware/rbac.js'
 import { applyMutation } from './yjsHandler.js'

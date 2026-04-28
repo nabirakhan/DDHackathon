@@ -1,4 +1,5 @@
-import type { WSServerMessage, AuthSocket } from '@shared/types'
+import type { WSServerMessage } from '@shared/types'
+import type { AuthSocket } from './types.js'
 import { rooms } from './yjsHandler.js'
 
 export function broadcastToRoom(roomId: string, msg: WSServerMessage, except?: AuthSocket) {

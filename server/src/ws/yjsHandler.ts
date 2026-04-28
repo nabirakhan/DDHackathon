@@ -1,5 +1,5 @@
 import * as Y from 'yjs'
-import type { AuthSocket } from '@shared/types'
+import type { AuthSocket } from './types.js'
 import { db } from '../db/supabase.js'
 import { writeEvent } from '../services/eventLog.js'
 import { schedule as scheduleTask } from '../services/taskExtractor.js'

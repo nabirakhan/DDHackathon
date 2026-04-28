@@ -1,5 +1,6 @@
 import * as Y from 'yjs'
-import type { AuthSocket, RoomJoinMessage } from '@shared/types'
+import type { RoomJoinMessage } from '@shared/types'
+import type { AuthSocket } from './types.js'
 import { db } from '../db/supabase.js'
 import { getOrCreateRoom, rooms, decodeSV } from './yjsHandler.js'
 import { getMembership } from '../middleware/rbac.js'

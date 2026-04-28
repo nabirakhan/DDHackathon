@@ -1,4 +1,5 @@
-import type { UserRole, AuthSocket, WSClientMessage, MutationApplyMessage, WSServerMessage } from '@shared/types'
+import type { UserRole, WSClientMessage, MutationApplyMessage, WSServerMessage } from '@shared/types'
+import type { AuthSocket } from '../ws/types.js'
 import { db } from '../db/supabase.js'
 import { writeEvent } from '../services/eventLog.js'
 

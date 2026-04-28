@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --tsconfig tsconfig.json src/server.ts",
-    "start": "tsx --tsconfig tsconfig.json src/server.ts",
+    "build": "echo 'no compile step'",
+    "start": "npx tsx --tsconfig tsconfig.json src/server.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -17,6 +18,7 @@
     "express-rate-limit": "^8.4.1",
     "helmet": "^8.1.0",
     "ws": "^8.18.0",
+    "tsx": "^4.19.2",
     "y-protocols": "^1.0.6",
     "yjs": "^13.6.24"
   },
@@ -25,7 +27,6 @@
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.7",
     "@types/ws": "^8.5.13",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   }
 }

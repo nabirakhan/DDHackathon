@@ -2,7 +2,8 @@ import { WebSocketServer } from 'ws'
 import { db } from '../db/supabase.js'
 import { roleCache } from './rbac.js'
 import { handleMessage } from '../ws/connection.js'
-import type { WSServerMessage, AuthSocket } from '@shared/types'
+import type { WSServerMessage } from '@shared/types'
+import type { AuthSocket } from '../ws/types.js'
 
 function send(socket: AuthSocket, msg: WSServerMessage) {
   if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(msg))
