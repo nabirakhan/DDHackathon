@@ -35,14 +35,25 @@ export type DecisionLockMessage = {
   type: 'decision:lock'
   payload: { roomId: string; nodeId: string }
 }
+export type NodeUnlockMessage = {
+  type: 'node:unlock'
+  payload: { roomId: string; nodeId: string }
+}
 export type NodeLockRequestMessage = {
   type: 'node:lock_request'
   payload: { roomId: string; nodeId: string; required_role: UserRole }
 }
 
 export type WSClientMessage =
-  | AuthMessage | AuthRefreshMessage | RoomJoinMessage | MutationApplyMessage
-  | AwarenessUpdateMessage | VoteCastMessage | DecisionLockMessage | NodeLockRequestMessage
+  | AuthMessage 
+  | AuthRefreshMessage 
+  | RoomJoinMessage 
+  | MutationApplyMessage
+  | AwarenessUpdateMessage 
+  | VoteCastMessage 
+  | DecisionLockMessage 
+  | NodeUnlockMessage      // NEW
+  | NodeLockRequestMessage
 
 export type RoomJoinedMessage = {
   type: 'room:joined'
@@ -86,6 +97,10 @@ export type NodeDecisionLockedMessage = {
   type: 'node:decision_locked'
   payload: { nodeId: string }
 }
+export type NodeUnlockedMessage = {      // NEW
+  type: 'node:unlocked'
+  payload: { nodeId: string }
+}
 export type VoteUpdatedMessage = {
   type: 'vote:updated'
   payload: { nodeId: string; voterId: string; votedFor: string }
@@ -99,7 +114,7 @@ export type TaskUpdatedMessage = {
   payload: { taskId: string; status: string }
 }
 export type AuthRefreshedMessage = { type: 'auth:refreshed' }
-export type ErpZEAWYtiB6bJ16NuLbGCc6CZ6jJdKfb63 = {
+export type ErrorPermissionDeniedMessage = {
   type: 'error:permission_denied'
   payload: { code: 'NOT_A_MEMBER' | 'INSUFFICIENT_ROLE' | 'NODE_LOCKED' | 'ROOM_MISMATCH' }
 }
@@ -108,8 +123,21 @@ export type ErrorContestResolvedMessage = { type: 'error:contest_resolved'; payl
 export type ErrorInternalMessage = { type: 'error:internal'; payload: Record<string, never> }
 
 export type WSServerMessage =
-  | RoomJoinedMessage | MutationBroadcastMessage | AwarenessBroadcastMessage | AwarenessPeerLeftMessage
-  | RoleChangedMessage | MemberJoinedMessage | MemberRemovedMessage
-  | NodeContestedMessage | NodeDecisionLockedMessage | VoteUpdatedMessage
-  | TaskCreatedMessage | TaskUpdatedMessage | AuthRefreshedMessage
-  | ErpZEAWYtiB6bJ16NuLbGCc6CZ6jJdKfb63 | ErrorMalformedUpdateMessage | ErrorContestResolvedMessage | ErrorInternalMessage
+  | RoomJoinedMessage 
+  | MutationBroadcastMessage 
+  | AwarenessBroadcastMessage 
+  | AwarenessPeerLeftMessage
+  | RoleChangedMessage 
+  | MemberJoinedMessage 
+  | MemberRemovedMessage
+  | NodeContestedMessage 
+  | NodeDecisionLockedMessage 
+  | NodeUnlockedMessage      // NEW
+  | VoteUpdatedMessage
+  | TaskCreatedMessage 
+  | TaskUpdatedMessage 
+  | AuthRefreshedMessage
+  | ErrorPermissionDeniedMessage 
+  | ErrorMalformedUpdateMessage 
+  | ErrorContestResolvedMessage 
+  | ErrorInternalMessage

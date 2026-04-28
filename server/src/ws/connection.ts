@@ -71,6 +71,38 @@ export async function handleMessage(socket: AuthSocket, msg: WSClientMessage) {
       break
     }
 
+    // NEW: Unlock handler for nodes
+    case 'node:unlock': {
+      const role = await getMembership(socket.userId, msg.payload.roomId)
+      if (role !== 'lead') {
+        send(socket, { type: 'error:permission_denied', payload: { code: 'INSUFFICIENT_ROLE' } })
+        return
+      }
+      // Delete the ACL entry to unlock
+      const { error } = await db.from('node_acl')
+        .delete()
+        .eq('room_id', msg.payload.roomId)
+        .eq('node_id', msg.payload.nodeId)
+      
+      if (error) {
+        console.error('[node:unlock] DB error:', error)
+        send(socket, { type: 'error:internal', payload: { message: 'Failed to unlock node' } })
+        return
+      }
+      
+      // Clear cache
+      aclCache.delete(`${msg.payload.roomId}:${msg.payload.nodeId}`)
+      
+      // Broadcast unlock to all clients
+      broadcastToRoom(msg.payload.roomId, {
+        type: 'node:unlocked',
+        payload: { nodeId: msg.payload.nodeId }
+      })
+      
+      console.log(`[node:unlock] Node ${msg.payload.nodeId} unlocked in room ${msg.payload.roomId} by ${socket.userId}`)
+      break
+    }
+
     case 'node:lock_request': {
       const role = await getMembership(socket.userId, msg.payload.roomId)
       if (role !== 'lead') {
