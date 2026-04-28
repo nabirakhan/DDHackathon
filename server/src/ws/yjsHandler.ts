@@ -86,7 +86,6 @@ async function initRoom(roomId: string): Promise<RoomState> {
         Y.applyUpdate(doc, bytes)
       }
     } catch (applyErr) {
-      // Start with empty doc
     }
   }
 
@@ -173,6 +172,8 @@ export async function applyMutation(
 ) {
   const room = await getOrCreateRoom(roomId)
 
+  const existedBefore = room.doc.getMap('shapes').has(nodeId)
+
   try {
     Y.applyUpdate(room.doc, yjsUpdate)
   } catch (err) {
@@ -180,18 +181,22 @@ export async function applyMutation(
     return
   }
 
+  const existsAfter = room.doc.getMap('shapes').has(nodeId)
+  const eventType = !existedBefore && existsAfter ? 'node:created'
+    : existedBefore && !existsAfter ? 'node:deleted'
+    : 'node:updated'
+
   room.lastActivityAt = Date.now()
 
-  if (textSnapshot) {
-    const eventResult = await writeEvent(roomId, fromSocket.userId, 'node:updated', nodeId, { textSnapshot })
-    if (eventResult && eventResult.id) {
-      scheduleTask(roomId, nodeId, fromSocket.userId)
-      recordEdit(roomId, nodeId, fromSocket.userId, textSnapshot, room.editWindows)
-    }
+  const eventResult = await writeEvent(roomId, fromSocket.userId, eventType, nodeId, { textSnapshot })
+
+  if (eventResult && eventResult.id && textSnapshot && textSnapshot.length > 0) {
+    scheduleTask(roomId, nodeId, fromSocket.userId)
+    await recordEdit(roomId, nodeId, fromSocket.userId, textSnapshot, room.editWindows)
   }
 
   scheduleSnapshot(roomId, room.doc)
-  
+
   broadcastToRoom(roomId, {
     type: 'mutation:broadcast',
     payload: { yjsUpdate: Array.from(yjsUpdate), nodeId }
