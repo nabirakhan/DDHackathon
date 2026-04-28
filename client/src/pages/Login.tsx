@@ -8,20 +8,6 @@ import { SoftAurora } from "../components/ui/SoftAurora";
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL as string;
 
-const inputStyle: React.CSSProperties = {
-  width: "100%", padding: "11px 14px",
-  background: "rgba(255,255,255,0.05)",
-  border: "1px solid rgba(202,210,197,0.12)",
-  borderRadius: "12px",
-  color: "#CAD2C5",
-  fontFamily: "Inter, sans-serif",
-  fontSize: "14px", fontWeight: 400,
-  outline: "none",
-  caretColor: "#84A98C",
-  transition: "border-color 0.25s ease, box-shadow 0.25s ease",
-  boxSizing: "border-box",
-};
-
 export default function Login() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
@@ -33,25 +19,38 @@ export default function Login() {
 
   const handleEnter = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { inputRef.current?.focus(); return; }
+    if (!name.trim()) {
+      inputRef.current?.focus();
+      return;
+    }
     setError(null);
     setLoading(true);
+
     try {
       let session = (await supabase.auth.getSession()).data.session;
       if (!session) {
-        const fakeEmail = `op-${crypto.randomUUID()}@ligma.internal`;
-        const { data, error: authErr } = await supabase.auth.signUp({ email: fakeEmail, password: crypto.randomUUID() });
+        const { data, error: authErr } =
+          await supabase.auth.signInAnonymously();
         if (authErr) throw authErr;
         session = data.session;
       }
+
       const displayName = name.trim();
       setDisplayName(displayName);
       if (!session) throw new Error("No session");
-      if (mode === "join" && roomCode.trim()) { navigate(`/room/${roomCode.trim()}`); return; }
+
+      if (mode === "join" && roomCode.trim()) {
+        navigate(`/room/${roomCode.trim()}`);
+        return;
+      }
+
       const res = await fetch(`${SERVER_URL}/rooms`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ name: `${displayName}'s Session` }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ name: `${displayName}'s War Room` }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed to create room");
@@ -64,110 +63,372 @@ export default function Login() {
   };
 
   return (
-    <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden", background: "#141f1f" }}>
+    <div
+      style={{
+        position: "relative",
+        width: "100vw",
+        height: "100vh",
+        overflow: "hidden",
+        background: "#0E0C0A",
+      }}
+    >
       <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
-        <SoftAurora color1="#354F52" color2="#52796F" speed={0.18} brightness={0.45} noiseFrequency={0.7} noiseAmplitude={0.6} bandHeight={0.45} bandSpread={0.4} enableMouseInteraction mouseInfluence={0.4} />
+        <SoftAurora
+          color1="#5D5646"
+          color2="#3E5974"
+          speed={0.18}
+          brightness={0.55}
+          noiseFrequency={0.7}
+          noiseAmplitude={0.65}
+          bandHeight={0.45}
+          bandSpread={0.38}
+          enableMouseInteraction
+          mouseInfluence={0.45}
+        />
       </div>
-      <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "radial-gradient(ellipse at center, rgba(20,31,31,0.1) 0%, rgba(20,31,31,0.65) 100%)" }} />
 
-      <div style={{ position: "relative", zIndex: 3, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: "24px" }}>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 1,
+          background:
+            "radial-gradient(ellipse at center, rgba(14,12,10,0.1) 0%, rgba(14,12,10,0.72) 100%)",
+        }}
+      />
+
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 2,
+          pointerEvents: "none",
+          background:
+            "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(14,12,10,0.03) 2px, rgba(14,12,10,0.03) 4px)",
+        }}
+      />
+
+      <div
+        style={{
+          position: "relative",
+          zIndex: 3,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100%",
+          padding: "24px",
+        }}
+      >
         <motion.div
-          initial={{ opacity: 0, y: -24, filter: "blur(8px)" }}
+          initial={{ opacity: 0, y: -28, filter: "blur(8px)" }}
           animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-          style={{ textAlign: "center", marginBottom: "48px" }}
+          style={{ textAlign: "center", marginBottom: "52px" }}
         >
-          <div style={{ fontFamily: "Syne, sans-serif", fontSize: "72px", fontWeight: 800, letterSpacing: "-4px", color: "#CAD2C5", lineHeight: 1, marginBottom: "12px" }}>
+          <div
+            style={{
+              fontFamily: "Syne, sans-serif",
+              fontSize: "76px",
+              fontWeight: 800,
+              letterSpacing: "-4px",
+              color: "#EEEAE2",
+              lineHeight: 1,
+              marginBottom: "14px",
+              textShadow:
+                "0 0 80px rgba(160,125,84,0.18), 0 2px 0 rgba(0,0,0,0.5)",
+            }}
+          >
             LIGMA
           </div>
-          <div style={{ fontFamily: "Inter, sans-serif", fontSize: "10px", letterSpacing: "4px", color: "rgba(202,210,197,0.35)", textTransform: "uppercase", fontWeight: 500 }}>
+          <div
+            style={{
+              fontFamily: "DM Mono, monospace",
+              fontSize: "10px",
+              letterSpacing: "5px",
+              color: "#8B8680",
+              textTransform: "uppercase",
+            }}
+          >
             Live Interactive Group Meeting Assistant
           </div>
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 32, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.7, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
+          initial={{ opacity: 0, y: 36, scale: 0.96, filter: "blur(4px)" }}
+          animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+          transition={{ duration: 0.7, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
           style={{
-            width: "100%", maxWidth: "380px",
-            background: "rgba(47, 62, 70, 0.72)",
-            backdropFilter: "blur(40px) saturate(150%)",
-            WebkitBackdropFilter: "blur(40px) saturate(150%)",
-            border: "1px solid rgba(202, 210, 197, 0.10)",
-            borderRadius: "2rem",
-            padding: "32px",
-            boxShadow: "0 32px 80px rgba(0,0,0,0.5)",
-            position: "relative", overflow: "hidden",
+            width: "100%",
+            maxWidth: "400px",
+            background: "rgba(26, 28, 30, 0.72)",
+            backdropFilter: "contrast(112%) blur(28px)",
+            WebkitBackdropFilter: "contrast(112%) blur(28px)",
+            border: "1px solid rgba(200, 188, 168, 0.13)",
+            borderRadius: "20px",
+            padding: "36px",
+            boxShadow:
+              "0 32px 80px rgba(26, 28, 30, 0.7), 0 1px 0 rgba(238,234,226,0.06) inset",
+            position: "relative",
+            overflow: "hidden",
           }}
         >
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "1px", background: "linear-gradient(90deg, transparent, rgba(132,169,140,0.5), transparent)", backgroundSize: "200% auto", animation: "shimmer 4s linear infinite" }} />
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: "1px",
+              background:
+                "linear-gradient(90deg, transparent, rgba(160,125,84,0.6), transparent)",
+              backgroundSize: "200% auto",
+              animation: "shimmer 3.5s linear infinite",
+            }}
+          />
 
-          <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", borderRadius: "999px", padding: "3px", marginBottom: "24px", border: "1px solid rgba(202,210,197,0.07)" }}>
+          <div
+            style={{
+              display: "flex",
+              background: "rgba(255,255,255,0.03)",
+              borderRadius: "999px",
+              padding: "3px",
+              marginBottom: "28px",
+              border: "1px solid rgba(200, 188, 168, 0.08)",
+            }}
+          >
             {(["create", "join"] as const).map((m) => (
-              <button key={m} onClick={() => { setMode(m); setError(null); }} style={{
-                flex: 1, padding: "8px 0", borderRadius: "999px", border: "none", cursor: "pointer",
-                fontFamily: "Syne, sans-serif", fontSize: "11px", fontWeight: 800,
-                letterSpacing: "1.5px", textTransform: "uppercase", transition: "all 0.3s ease",
-                background: mode === m ? "linear-gradient(135deg, #52796F, #354F52)" : "transparent",
-                color: mode === m ? "#CAD2C5" : "rgba(202,210,197,0.4)",
-                boxShadow: mode === m ? "0 2px 10px rgba(0,0,0,0.3)" : "none",
-              }}>
+              <button
+                key={m}
+                onClick={() => {
+                  setMode(m);
+                  setError(null);
+                }}
+                style={{
+                  flex: 1,
+                  padding: "9px 0",
+                  borderRadius: "999px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: "Syne, sans-serif",
+                  fontSize: "11px",
+                  fontWeight: 800,
+                  letterSpacing: "2px",
+                  textTransform: "uppercase",
+                  transition: "all 0.35s ease",
+                  background:
+                    mode === m
+                      ? "linear-gradient(135deg, rgba(93,86,70,0.85), rgba(62,89,116,0.65))"
+                      : "transparent",
+                  color: mode === m ? "#EEEAE2" : "#8B8680",
+                  boxShadow:
+                    mode === m ? "0 2px 10px rgba(93,86,70,0.35)" : "none",
+                }}
+              >
                 {m === "create" ? "New Room" : "Join Room"}
               </button>
             ))}
           </div>
 
           <form onSubmit={handleEnter}>
-            <div style={{ marginBottom: "12px" }}>
-              <label style={{ display: "block", fontFamily: "Syne, sans-serif", fontSize: "10px", fontWeight: 800, letterSpacing: "2px", color: "rgba(202,210,197,0.4)", textTransform: "uppercase", marginBottom: "8px" }}>
+            <div style={{ marginBottom: "16px" }}>
+              <label
+                style={{
+                  display: "block",
+                  fontFamily: "Syne, sans-serif",
+                  fontSize: "10px",
+                  fontWeight: 800,
+                  letterSpacing: "2.5px",
+                  color: "#8B8680",
+                  textTransform: "uppercase",
+                  marginBottom: "10px",
+                }}
+              >
                 Operative Name
               </label>
-              <input ref={inputRef} type="text" value={name} onChange={(e) => setName(e.target.value)} required autoFocus placeholder="Enter your name..." maxLength={32} style={inputStyle}
-                onFocus={(e) => { e.target.style.borderColor = "rgba(132,169,140,0.45)"; e.target.style.boxShadow = "0 0 0 3px rgba(82,121,111,0.12)"; }}
-                onBlur={(e) => { e.target.style.borderColor = "rgba(202,210,197,0.12)"; e.target.style.boxShadow = "none"; }}
+              <input
+                ref={inputRef}
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                autoFocus
+                placeholder="Enter your name..."
+                maxLength={32}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  background: "rgba(238, 234, 226, 0.04)",
+                  border: "1px solid rgba(200, 188, 168, 0.12)",
+                  borderRadius: "10px",
+                  color: "#EEEAE2",
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: "15px",
+                  fontWeight: 300,
+                  outline: "none",
+                  caretColor: "#A07D54",
+                  transition: "border-color 0.35s ease, box-shadow 0.35s ease",
+                  boxSizing: "border-box",
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = "rgba(160, 125, 84, 0.45)";
+                  e.target.style.boxShadow = "0 0 0 3px rgba(160,125,84,0.1)";
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = "rgba(200, 188, 168, 0.12)";
+                  e.target.style.boxShadow = "none";
+                }}
               />
             </div>
 
             <AnimatePresence>
               {mode === "join" && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} style={{ marginBottom: "12px", overflow: "hidden" }}>
-                  <label style={{ display: "block", fontFamily: "Syne, sans-serif", fontSize: "10px", fontWeight: 800, letterSpacing: "2px", color: "rgba(202,210,197,0.4)", textTransform: "uppercase", marginBottom: "8px" }}>
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  style={{ marginBottom: "16px", overflow: "hidden" }}
+                >
+                  <label
+                    style={{
+                      display: "block",
+                      fontFamily: "Syne, sans-serif",
+                      fontSize: "10px",
+                      fontWeight: 800,
+                      letterSpacing: "2.5px",
+                      color: "#8B8680",
+                      textTransform: "uppercase",
+                      marginBottom: "10px",
+                    }}
+                  >
                     Room ID
                   </label>
-                  <input type="text" value={roomCode} onChange={(e) => setRoomCode(e.target.value)} placeholder="Paste room ID..." style={{ ...inputStyle, fontFamily: "DM Mono, monospace", fontSize: "13px" }} />
+                  <input
+                    type="text"
+                    value={roomCode}
+                    onChange={(e) => setRoomCode(e.target.value)}
+                    placeholder="Paste room ID..."
+                    style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      background: "rgba(238, 234, 226, 0.04)",
+                      border: "1px solid rgba(200, 188, 168, 0.12)",
+                      borderRadius: "10px",
+                      color: "#EEEAE2",
+                      fontFamily: "DM Mono, monospace",
+                      fontSize: "13px",
+                      outline: "none",
+                      caretColor: "#A07D54",
+                      boxSizing: "border-box",
+                    }}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
 
             <AnimatePresence>
               {error && (
-                <motion.p key="err" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} style={{ fontFamily: "Inter, sans-serif", fontSize: "11px", color: "#ef4444", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "8px", padding: "8px 12px", marginBottom: "12px" }}>
+                <motion.p
+                  key="err"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  style={{
+                    fontFamily: "DM Mono, monospace",
+                    fontSize: "11px",
+                    color: "#ef4444",
+                    background: "rgba(239,68,68,0.08)",
+                    border: "1px solid rgba(239,68,68,0.2)",
+                    borderRadius: "8px",
+                    padding: "8px 12px",
+                    marginBottom: "14px",
+                  }}
+                >
                   {error}
                 </motion.p>
               )}
             </AnimatePresence>
 
-            <button type="submit" disabled={loading || !name.trim()} style={{
-              width: "100%", padding: "13px 0",
-              background: loading || !name.trim() ? "rgba(82,121,111,0.2)" : "linear-gradient(135deg, #52796F 0%, #354F52 100%)",
-              border: "1px solid rgba(132,169,140,0.2)",
-              borderRadius: "999px", color: "#CAD2C5",
-              fontFamily: "Syne, sans-serif", fontSize: "14px", fontWeight: 800,
-              letterSpacing: "0.5px", cursor: loading || !name.trim() ? "not-allowed" : "pointer",
-              opacity: loading || !name.trim() ? 0.5 : 1,
-              transition: "opacity 0.25s ease, filter 0.2s ease",
-              boxShadow: loading || !name.trim() ? "none" : "0 4px 20px rgba(82,121,111,0.35)",
-            }}
-              onMouseEnter={(e) => { if (!loading && name.trim()) (e.currentTarget as HTMLButtonElement).style.filter = "brightness(1.12)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = "brightness(1)"; }}
+            <button
+              type="submit"
+              disabled={loading || !name.trim()}
+              style={{
+                position: "relative",
+                width: "100%",
+                padding: "14px 0",
+                background:
+                  loading || !name.trim()
+                    ? "rgba(93,86,70,0.25)"
+                    : "linear-gradient(135deg, #5D5646 0%, #3E5974 100%)",
+                border: "1px solid rgba(200, 188, 168, 0.15)",
+                borderRadius: "999px",
+                color: "#EEEAE2",
+                fontFamily: "Syne, sans-serif",
+                fontSize: "15px",
+                fontWeight: 800,
+                letterSpacing: "1px",
+                cursor: loading || !name.trim() ? "not-allowed" : "pointer",
+                overflow: "hidden",
+                transition:
+                  "opacity 0.35s ease, transform 0.2s ease, box-shadow 0.35s ease",
+                opacity: loading || !name.trim() ? 0.45 : 1,
+                boxShadow:
+                  loading || !name.trim()
+                    ? "none"
+                    : "0 4px 20px rgba(93, 86, 70, 0.4)",
+              }}
+              onMouseEnter={(e) => {
+                if (!loading && name.trim())
+                  (e.currentTarget as HTMLButtonElement).style.transform =
+                    "scale(1.015)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.transform =
+                  "scale(1)";
+              }}
             >
-              {loading ? "Connecting..." : mode === "create" ? "Open Room →" : "Join Room →"}
+              <span style={{ position: "relative", zIndex: 1 }}>
+                {loading
+                  ? "Accessing..."
+                  : mode === "create"
+                    ? "Open War Room →"
+                    : "Breach Entry →"}
+              </span>
+              {!loading && name.trim() && (
+                <span
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background:
+                      "linear-gradient(90deg, transparent, rgba(212,160,23,0.22), transparent)",
+                    backgroundSize: "200% auto",
+                    animation: "shimmer 2.2s linear infinite",
+                  }}
+                />
+              )}
             </button>
           </form>
 
-          <div style={{ marginTop: "20px", textAlign: "center", fontFamily: "Inter, sans-serif", fontSize: "9px", letterSpacing: "1.5px", color: "rgba(202,210,197,0.2)", textTransform: "uppercase" }}>
-            Anonymous access enabled · No credentials stored
+          <div
+            style={{
+              marginTop: "22px",
+              padding: "10px 14px",
+              background: "rgba(255,255,255,0.02)",
+              border: "1px solid rgba(200,188,168,0.06)",
+              borderRadius: "8px",
+              fontFamily: "DM Mono, monospace",
+              fontSize: "9px",
+              letterSpacing: "1.5px",
+              color: "#8B8680",
+              textAlign: "center",
+              lineHeight: 1.8,
+            }}
+          >
+            SYSTEM STATUS: ANONYMOUS ACCESS ENABLED
+            <br />
+            <span style={{ color: "#5B7A9E" }}>
+              // ENCRYPTED SESSION · NO CREDENTIALS STORED
+            </span>
           </div>
         </motion.div>
       </div>
