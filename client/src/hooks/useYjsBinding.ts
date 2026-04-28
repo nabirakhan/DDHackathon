@@ -137,13 +137,38 @@ export function useYjsBinding(roomId: string) {
       }
 
       if (msg.type === 'room:joined') {
-        const bytes = new Uint8Array(msg.payload.yjsDiff)
-        try {
-          Y.applyUpdate(ydoc, bytes, 'remote')
-        } catch (err) {
-          console.error('[ws:inbound] room:joined applyUpdate threw:', err)
-        }
-        setRoomReady(true)
+        void (async () => {
+          const raw = new Uint8Array(msg.payload.yjsDiff)
+          let bytes = raw
+          if (msg.payload.isCompressed && raw.length > 0) {
+            try {
+              const ds = new DecompressionStream('deflate')
+              const writer = ds.writable.getWriter()
+              const reader = ds.readable.getReader()
+              writer.write(raw)
+              writer.close()
+              const chunks: Uint8Array[] = []
+              while (true) {
+                const { done, value } = await reader.read()
+                if (done) break
+                chunks.push(value)
+              }
+              const total = chunks.reduce((s, c) => s + c.length, 0)
+              bytes = new Uint8Array(total)
+              let offset = 0
+              for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length }
+            } catch (err) {
+              console.error('[ws:inbound] decompression failed:', err)
+            }
+          }
+          try {
+            if (bytes.length > 0) Y.applyUpdate(ydoc, bytes, 'remote')
+          } catch (err) {
+            console.error('[ws:inbound] room:joined applyUpdate threw:', err)
+          }
+          setRoomReady(true)
+        })()
+        return
       }
 
       if (msg.type === 'error:permission_denied') {

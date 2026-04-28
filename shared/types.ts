@@ -51,6 +51,7 @@ export type RoomJoinedMessage = {
   type: 'room:joined'
   payload: {
     yjsDiff: number[]
+    isCompressed?: boolean
     sessionStartedAt: string | null
     decisionCount: number
     awarenessStates: Array<{ userId: string; displayName?: string } & AwarenessState>
