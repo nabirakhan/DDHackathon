@@ -1,3 +1,4 @@
+// client/src/pages/Login.tsx
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -69,7 +70,6 @@ export default function Login() {
       overflow: "hidden",
       background: "#0E0C0A",
     }}>
-      {/* WebGL Aurora */}
       <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
         <SoftAurora
           color1="#5D5646"
@@ -85,26 +85,22 @@ export default function Login() {
         />
       </div>
 
-      {/* Radial vignette */}
       <div style={{
         position: "absolute", inset: 0, zIndex: 1,
         background: "radial-gradient(ellipse at center, rgba(14,12,10,0.1) 0%, rgba(14,12,10,0.72) 100%)",
       }} />
 
-      {/* Horizontal scanline — cinematic feel */}
       <div style={{
         position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none",
         background: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(14,12,10,0.03) 2px, rgba(14,12,10,0.03) 4px)",
       }} />
 
-      {/* Layout */}
       <div style={{
         position: "relative", zIndex: 3,
         display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center",
         height: "100%", padding: "24px",
       }}>
-        {/* Logo */}
         <motion.div
           initial={{ opacity: 0, y: -28, filter: "blur(8px)" }}
           animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
@@ -134,7 +130,6 @@ export default function Login() {
           </div>
         </motion.div>
 
-        {/* Gate Card */}
         <motion.div
           initial={{ opacity: 0, y: 36, scale: 0.96, filter: "blur(4px)" }}
           animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
@@ -153,7 +148,6 @@ export default function Login() {
             overflow: "hidden",
           }}
         >
-          {/* Top shimmer accent */}
           <div style={{
             position: "absolute", top: 0, left: 0, right: 0, height: "1px",
             background: "linear-gradient(90deg, transparent, rgba(160,125,84,0.6), transparent)",
@@ -161,7 +155,6 @@ export default function Login() {
             animation: "shimmer 3.5s linear infinite",
           }} />
 
-          {/* Mode switcher */}
           <div style={{
             display: "flex",
             background: "rgba(255,255,255,0.03)",
@@ -194,7 +187,6 @@ export default function Login() {
           </div>
 
           <form onSubmit={handleEnter}>
-            {/* Display Name */}
             <div style={{ marginBottom: "16px" }}>
               <label style={{
                 display: "block",
@@ -239,7 +231,6 @@ export default function Login() {
               />
             </div>
 
-            {/* Room Code (join mode) */}
             <AnimatePresence>
               {mode === "join" && (
                 <motion.div
@@ -280,7 +271,6 @@ export default function Login() {
               )}
             </AnimatePresence>
 
-            {/* Error */}
             <AnimatePresence>
               {error && (
                 <motion.p
@@ -302,7 +292,6 @@ export default function Login() {
               )}
             </AnimatePresence>
 
-            {/* Enter button */}
             <button
               type="submit"
               disabled={loading || !name.trim()}
@@ -340,7 +329,6 @@ export default function Login() {
             </button>
           </form>
 
-          {/* System status */}
           <div style={{
             marginTop: "22px", padding: "10px 14px",
             background: "rgba(255,255,255,0.02)",

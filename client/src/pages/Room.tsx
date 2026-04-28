@@ -1,3 +1,4 @@
+// client/src/pages/Room.tsx
 import { useParams } from 'react-router-dom'
 import { useEffect } from 'react'
 import { Toaster } from 'sonner'
@@ -16,9 +17,6 @@ function RoomInner({ roomId }: { roomId: string }) {
   useYjsBinding(roomId)
 
   useEffect(() => {
-    // clientStateVector is always [] because the ydoc is freshly created on every
-    // mount (useMemo with [] deps in CanvasContext) — there is no stale local state.
-    // The server interprets [] as "client has nothing" and sends the full doc state.
     const sv: number[] = []
     console.log('[room:join] sending room:join — roomId:', roomId, 'clientStateVector:', sv, '| wsState:', wsClient.getReadyState())
     wsClient.send({
@@ -29,27 +27,20 @@ function RoomInner({ roomId }: { roomId: string }) {
 
   return (
     <>
-      {/* Floating UI shell — all position: fixed, z-index above tldraw */}
       <TopBar roomId={roomId} />
       <ConnectionBanner />
 
-      {/* Left panel: Event Log */}
       <EventLog roomId={roomId} />
 
-      {/* Right panel: Task Board */}
       <TaskBoard roomId={roomId} />
 
-      {/* Contested nodes — bottom right */}
       <ContestedNodeOverlay roomId={roomId} />
 
-      {/* Cursor presence — full viewport overlay */}
       <CursorPresence roomId={roomId} />
 
-      {/* Bottom dock */}
       <AIStatusPill />
       <ToolDock roomId={roomId} />
 
-      {/* Toasts */}
       <Toaster
         position="top-center"
         toastOptions={{

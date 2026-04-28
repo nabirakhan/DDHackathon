@@ -1,6 +1,6 @@
+/* client/src/index.css */
 @import "tailwindcss";
 
-/* ── Ironside Command palette ── */
 :root {
   --bone: #E8E0D0;
   --linen: #EEEAE2;
@@ -18,7 +18,6 @@
   --deep-stone: #2C2820;
   --ink: #1A1814;
 
-  /* Semantic */
   --bg-base: var(--charcoal);
   --bg-surface: rgba(255, 255, 255, 0.06);
   --bg-glass: rgba(255, 255, 255, 0.08);
@@ -29,23 +28,19 @@
   --text-secondary: var(--stone);
   --text-muted: var(--ash);
 
-  /* Glass effect */
   --glass-blur: blur(20px);
   --glass-contrast: contrast(110%);
   --glass-bg: rgba(26, 28, 30, 0.65);
 
-  /* Typography */
   --font-display: 'Syne', sans-serif;
   --font-body: 'Inter', sans-serif;
   --font-mono: 'DM Mono', monospace;
 
-  /* Spacing & radius */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-pill: 999px;
 
-  /* Shadows — olive-tinted */
   --shadow-sm: 0 2px 8px rgba(93, 86, 70, 0.25);
   --shadow-md: 0 8px 32px rgba(93, 86, 70, 0.3);
   --shadow-lg: 0 16px 48px rgba(93, 86, 70, 0.35);
@@ -72,7 +67,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── Material Glass Utility ── */
 .glass {
   background: var(--glass-bg);
   backdrop-filter: var(--glass-contrast) var(--glass-blur);
@@ -87,7 +81,6 @@ body {
   border: 1px solid var(--border-subtle);
 }
 
-/* ── Ironside Panel ── */
 .ironside-panel {
   background: rgba(26, 28, 30, 0.7);
   backdrop-filter: contrast(112%) blur(24px);
@@ -102,19 +95,16 @@ body {
   border-color: rgba(200, 188, 168, 0.2);
 }
 
-/* ── Canvas dot grid background ── */
 .canvas-grid {
   background-color: var(--linen);
   background-image: radial-gradient(circle, rgba(93, 86, 70, 0.35) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
-/* ── Bronze glow ── */
 .glow-bronze {
   box-shadow: 0 0 12px rgba(160, 125, 84, 0.4), 0 0 32px rgba(160, 125, 84, 0.15);
 }
 
-/* ── Custom scrollbar ── */
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
@@ -129,19 +119,16 @@ body {
   background: rgba(160, 125, 84, 0.55);
 }
 
-/* ── Floating panel ── */
 .floating-panel {
   position: fixed;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-panel);
 }
 
-/* ── State crossfade ── */
 .state-crossfade {
   transition: color 0.5s ease, background 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
 }
 
-/* ── Scrollbar (global) ── */
 ::-webkit-scrollbar {
   width: 4px;
 }
@@ -153,7 +140,6 @@ body {
   border-radius: 4px;
 }
 
-/* ── Animations ── */
 @keyframes shimmer {
   0% { background-position: -200% center; }
   100% { background-position: 200% center; }

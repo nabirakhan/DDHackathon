@@ -1,3 +1,4 @@
+// client/src/context/CanvasContext.tsx
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
 import { Tldraw, createTLStore, defaultShapeUtils, type Editor, type TLStore, type TLShape } from 'tldraw'
 import * as Y from 'yjs'

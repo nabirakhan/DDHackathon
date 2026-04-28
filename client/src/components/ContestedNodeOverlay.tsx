@@ -1,3 +1,4 @@
+// client/src/components/ContestedNodeOverlay.tsx
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { wsClient } from '../lib/wsClient'
@@ -55,7 +56,6 @@ export function ContestedNodeOverlay({ roomId }: { roomId: string }) {
               animationDelay: '0.5s',
             }}
           >
-            {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
               <div style={{
                 padding: '4px',
@@ -73,7 +73,6 @@ export function ContestedNodeOverlay({ roomId }: { roomId: string }) {
               </span>
             </div>
 
-            {/* Rotating dashed border on versions */}
             <div style={{ marginBottom: '12px' }}>
               {Object.entries(c.versions).map(([userId, text]) => (
                 <button
@@ -113,7 +112,6 @@ export function ContestedNodeOverlay({ roomId }: { roomId: string }) {
               ))}
             </div>
 
-            {/* Lock button */}
             <button
               onClick={() => wsClient.send({
                 type: 'decision:lock',

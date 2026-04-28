@@ -1,3 +1,4 @@
+// client/src/hooks/useConnectionStatus.ts
 import { useEffect, useState } from 'react'
 import { wsClient } from '../lib/wsClient'
 

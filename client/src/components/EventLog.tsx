@@ -1,3 +1,4 @@
+// client/src/components/EventLog.tsx
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { wsClient } from '../lib/wsClient'
@@ -63,7 +64,6 @@ export function EventLog({ roomId: _roomId }: { roomId: string }) {
       overflow: 'hidden',
       transition: 'max-height 0.3s ease',
     }}>
-      {/* Header */}
       <button
         onClick={() => setCollapsed(v => !v)}
         style={{
@@ -101,7 +101,6 @@ export function EventLog({ roomId: _roomId }: { roomId: string }) {
         </span>
       </button>
 
-      {/* Events */}
       {!collapsed && (
         <div
           ref={listRef}

@@ -1,3 +1,4 @@
+// client/src/components/CursorPresence.tsx
 import { useEffect, useState, useCallback } from 'react'
 import { throttle } from 'lodash'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -74,7 +75,6 @@ export function CursorPresence({ roomId: _roomId }: { roomId: string }) {
               exit={{ opacity: 0, scale: 0.5 }}
               transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             >
-              {/* Cursor triangle */}
               <div style={{ position: 'relative' }}>
                 <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
                   <path d="M0 0 L0 16 L5 12 L8 20 L10 19 L7 11 L14 11 Z"
@@ -84,7 +84,6 @@ export function CursorPresence({ roomId: _roomId }: { roomId: string }) {
                   />
                 </svg>
 
-                {/* Role ring behind cursor */}
                 <div style={{
                   position: 'absolute',
                   top: '-4px', left: '-4px',
@@ -106,7 +105,6 @@ export function CursorPresence({ roomId: _roomId }: { roomId: string }) {
                   }} />
                 )}
 
-                {/* Name label */}
                 <div style={{
                   position: 'absolute',
                   top: '16px',

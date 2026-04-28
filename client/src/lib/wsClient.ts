@@ -1,3 +1,4 @@
+// client/src/lib/wsClient.ts
 import { supabase } from './supabase'
 import type { WSClientMessage, WSServerMessage } from '@shared/types'
 
@@ -7,9 +8,6 @@ const listeners = new Set<Listener>()
 let currentWs: WebSocket | null = null
 let pendingQueue: WSClientMessage[] = []
 let isRefreshing = false
-// True from the moment ws.onopen fires until the server replies with auth:refreshed.
-// While true, wsClient.send queues rather than transmits, preventing room:join (and
-// any other message) from reaching the server before authentication completes.
 let isAuthing = false
 let attempt = 0
 
@@ -43,9 +41,6 @@ export const wsClient = {
   connect(url: string) {
     const ws = new WebSocket(url)
     currentWs = ws
-    // Block the queue until the server confirms auth — without this, room:join
-    // arrives at the server while the auth await is still in-flight, which causes
-    // the server to close the socket with code 4001 "Not authenticated".
     isAuthing = true
     console.log('[ws] connecting to', url)
 
@@ -54,9 +49,6 @@ export const wsClient = {
       const { data: { session } } = await supabase.auth.getSession()
       console.log('[ws] open — sending auth, session present:', !!session)
       ws.send(JSON.stringify({ type: 'auth', payload: { token: session?.access_token ?? '' } }))
-      // DO NOT call drainQueue() here — wait for auth:refreshed from the server.
-      // Draining now sends room:join while the server's auth await is still pending,
-      // causing a Not Authenticated close that silently drops room:join from the queue.
     }
 
     ws.onmessage = (e) => {
@@ -73,7 +65,7 @@ export const wsClient = {
     ws.onclose = (ev) => {
       console.log('[ws] closed — code:', ev.code, 'reason:', ev.reason, '| queued msgs:', pendingQueue.length)
       currentWs = null
-      isAuthing = false  // reset so pending messages don't stay blocked indefinitely
+      isAuthing = false
       setTimeout(() => wsClient.connect(url), backoff())
     }
 

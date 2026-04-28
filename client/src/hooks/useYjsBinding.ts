@@ -1,3 +1,4 @@
+// client/src/hooks/useYjsBinding.ts
 import { useEffect, useRef } from 'react'
 import * as Y from 'yjs'
 import type { TLShapeId } from 'tldraw'
@@ -6,8 +7,6 @@ import { wsClient } from '../lib/wsClient'
 
 interface PendingMeta { nodeId: string; textSnapshot?: string }
 
-// tldraw session/presence types that are device-local and must never be synced via Yjs.
-// Only 'document'-scoped records (shape, page, asset, binding) belong in the shared doc.
 const NON_DOCUMENT_TYPES = new Set([
   'pointer',
   'instance',
@@ -21,7 +20,6 @@ export function useYjsBinding(roomId: string) {
   const isApplyingRemote = useRef(false)
   const metaQueue = useRef<PendingMeta[]>([])
 
-  // tldraw → Yjs (one transact per shape, push meta before each)
   useEffect(() => {
     return store.listen(({ changes }) => {
       if (isApplyingRemote.current) return
@@ -52,9 +50,7 @@ export function useYjsBinding(roomId: string) {
     })
   }, [store, ydoc, yShapes])
 
-  // Yjs → tldraw
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const observer = (event: Y.YMapEvent<any>) => {
       console.log('[yjs:observe] fired — origin:', event.transaction.origin, 'keysChanged:', [...event.keysChanged], 'yShapes.size:', yShapes.size)
       if (event.transaction.origin === 'local') {
@@ -91,7 +87,6 @@ export function useYjsBinding(roomId: string) {
     return () => yShapes.unobserve(observer)
   }, [yShapes, store])
 
-  // Apply remote updates from other clients and initial room state
   useEffect(() => {
     console.log('[ws:inbound] registering wsClient listener, ydoc clientID:', ydoc.clientID)
     return wsClient.on((msg) => {
@@ -118,7 +113,6 @@ export function useYjsBinding(roomId: string) {
     })
   }, [ydoc, yShapes])
 
-  // Send local updates with shifted metadata
   useEffect(() => {
     const handler = (update: Uint8Array, origin: unknown) => {
       if (origin !== 'local') return

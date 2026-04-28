@@ -1,3 +1,4 @@
+// shared/types.ts
 export type UserRole = 'lead' | 'contributor' | 'viewer'
 export type IntentType = 'action_item' | 'decision' | 'open_question' | 'reference'
 
@@ -8,7 +9,6 @@ export interface AwarenessState {
   selection?: string
 }
 
-// Module augmentation — extends 'ws' WebSocket with our custom socket props
 declare module 'ws' {
   interface WebSocket {
     userId?: string
@@ -25,7 +25,6 @@ export type AuthSocket = import('ws').WebSocket & {
   lastAwareness?: AwarenessState
 }
 
-// Client → Server
 export type AuthMessage = { type: 'auth'; payload: { token: string } }
 export type AuthRefreshMessage = { type: 'auth:refresh'; payload: { token: string } }
 export type RoomJoinMessage = {
@@ -62,7 +61,6 @@ export type WSClientMessage =
   | AuthMessage | AuthRefreshMessage | RoomJoinMessage | MutationApplyMessage
   | AwarenessUpdateMessage | VoteCastMessage | DecisionLockMessage | NodeLockRequestMessage
 
-// Server → Client
 export type RoomJoinedMessage = {
   type: 'room:joined'
   payload: {

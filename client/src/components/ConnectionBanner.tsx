@@ -1,3 +1,4 @@
+// client/src/components/ConnectionBanner.tsx
 import { useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useConnectionStatus } from '../hooks/useConnectionStatus'

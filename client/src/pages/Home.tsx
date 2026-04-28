@@ -1,3 +1,4 @@
+// client/src/pages/Home.tsx
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
@@ -80,13 +81,11 @@ export default function Home() {
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#1A1C1E' }}>
-      {/* Background */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <SoftAurora color1="#5D5646" color2="#3E5974" speed={0.18} brightness={0.4} bandSpread={0.38} enableMouseInteraction={false} />
       </div>
       <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'rgba(26, 28, 30, 0.62)' }} />
 
-      {/* Top bar */}
       <div style={{
         position: 'relative',
         zIndex: 10,
@@ -125,7 +124,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Main content */}
       <div style={{
         position: 'relative',
         zIndex: 2,
@@ -135,7 +133,6 @@ export default function Home() {
         height: 'calc(100vh - 65px)',
         overflowY: 'auto',
       }}>
-        {/* Create Room */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -226,7 +223,6 @@ export default function Home() {
           )}
         </motion.div>
 
-        {/* Rooms list */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
