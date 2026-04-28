@@ -15,16 +15,18 @@ export async function handleRoomJoin(socket: AuthSocket, payload: RoomJoinMessag
   let isNewMember = false
 
   if (!role) {
+    const { data: roomData } = await db.from('rooms').select('created_by').eq('id', payload.roomId).single()
+    const defaultRole = roomData?.created_by === socket.userId ? 'lead' : 'viewer'
+    
     await db.from('room_members').insert({
       room_id: payload.roomId,
       user_id: socket.userId,
-      role: 'viewer'
+      role: defaultRole
     })
-    role = 'viewer'
+    role = defaultRole
     isNewMember = true
   }
 
-  // Store display name on the socket for later member list lookups
   if (payload.displayName) socket.displayName = payload.displayName
 
   if (socket.roomId && socket.roomId !== payload.roomId) {
@@ -35,13 +37,11 @@ export async function handleRoomJoin(socket: AuthSocket, payload: RoomJoinMessag
   room.clients.add(socket)
   socket.roomId = payload.roomId
 
-  // Broadcast new member to everyone already in the room (before adding self)
   if (isNewMember) {
     broadcastToRoom(payload.roomId, {
       type: 'member:joined',
-      payload: { userId: socket.userId, role: 'viewer', displayName: payload.displayName }
+      payload: { userId: socket.userId, role: role, displayName: payload.displayName }
     }, socket)
-    console.log(`[replay] new viewer auto-joined room=${payload.roomId} user=${socket.userId}`)
   }
 
   if (!room.sessionStartedAt) {
@@ -54,51 +54,59 @@ export async function handleRoomJoin(socket: AuthSocket, payload: RoomJoinMessag
   const sv = payload.clientStateVector.length
     ? new Uint8Array(payload.clientStateVector) : undefined
 
-  const clientSVDecoded = sv ? decodeSV(sv) : {}
   const docSV = decodeSV(Y.encodeStateVector(room.doc))
   const fullUpdate = Y.encodeStateAsUpdate(room.doc)
   const diff = Y.encodeStateAsUpdate(room.doc, sv)
 
-  console.log(
-    `[replay] room:joined for ${payload.roomId}` +
-    `\n  user=${socket.userId} role=${role} displayName=${payload.displayName ?? '(none)'}` +
-    `\n  clientSV (decoded): ${JSON.stringify(clientSVDecoded)}` +
-    `\n  docSV    (decoded): ${JSON.stringify(docSV)}` +
-    `\n  fullUpdate (no sv): ${fullUpdate.length} bytes` +
-    `\n  diff   (with sv):   ${diff.length} bytes`
-  )
+  if (diff.length <= 2 && fullUpdate.length > 2) {
+    const { count: decisionCount } = await db.from('node_acl')
+      .select('*', { count: 'exact', head: true })
+      .eq('room_id', payload.roomId)
+      .eq('is_locked', true)
 
-  if (diff.length <= 2) {
-    console.warn('[replay] WARNING: diff is ≤2 bytes — server is sending no content to client.')
-    if (fullUpdate.length > 2) {
-      console.warn('[replay] CAUSE: client SV already covers it. clientSV:', JSON.stringify(clientSVDecoded))
-    } else {
-      console.warn('[replay] CAUSE: server doc is empty — snapshot not loaded or room evicted.')
-    }
+    const awarenessStates = Array.from(room.clients)
+      .filter(c =>
+        c !== socket &&
+        c.lastAwareness &&
+        c.lastAwarenessAt &&
+        Date.now() - c.lastAwarenessAt < 10000 &&
+        c.userId
+      )
+      .map(c => ({ userId: c.userId!, displayName: c.displayName, ...c.lastAwareness! }))
+
+    send(socket, {
+      type: 'room:joined',
+      payload: {
+        yjsDiff: Array.from(fullUpdate),
+        sessionStartedAt: room.sessionStartedAt,
+        decisionCount: decisionCount ?? 0,
+        awarenessStates
+      }
+    })
+  } else {
+    const { count: decisionCount } = await db.from('node_acl')
+      .select('*', { count: 'exact', head: true })
+      .eq('room_id', payload.roomId)
+      .eq('is_locked', true)
+
+    const awarenessStates = Array.from(room.clients)
+      .filter(c =>
+        c !== socket &&
+        c.lastAwareness &&
+        c.lastAwarenessAt &&
+        Date.now() - c.lastAwarenessAt < 10000 &&
+        c.userId
+      )
+      .map(c => ({ userId: c.userId!, displayName: c.displayName, ...c.lastAwareness! }))
+
+    send(socket, {
+      type: 'room:joined',
+      payload: {
+        yjsDiff: Array.from(diff),
+        sessionStartedAt: room.sessionStartedAt,
+        decisionCount: decisionCount ?? 0,
+        awarenessStates
+      }
+    })
   }
-
-  const { count: decisionCount } = await db.from('node_acl')
-    .select('*', { count: 'exact', head: true })
-    .eq('room_id', payload.roomId)
-    .eq('is_locked', true)
-
-  const awarenessStates = Array.from(room.clients)
-    .filter(c =>
-      c !== socket &&
-      c.lastAwareness &&
-      c.lastAwarenessAt &&
-      Date.now() - c.lastAwarenessAt < 10_000 &&
-      c.userId
-    )
-    .map(c => ({ userId: c.userId!, displayName: c.displayName, ...c.lastAwareness! }))
-
-  send(socket, {
-    type: 'room:joined',
-    payload: {
-      yjsDiff: Array.from(diff),
-      sessionStartedAt: room.sessionStartedAt,
-      decisionCount: decisionCount ?? 0,
-      awarenessStates
-    }
-  })
 }
