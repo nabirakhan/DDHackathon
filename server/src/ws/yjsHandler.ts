@@ -66,34 +66,27 @@ function scheduleSnapshot(roomId: string, doc: Y.Doc) {
     if (error) {
       console.error('[snapshot:write] upsert FAILED for room', roomId, ':', error)
     }
-  }, 5000))
+  }, 10000))
 }
 
 async function initRoom(roomId: string): Promise<RoomState> {
   const doc = new Y.Doc()
   doc.getMap('shapes')
 
-  const { data: snap, error: snapError } = await db
+  const { data: snap } = await db
     .from('yjs_snapshots')
     .select('snapshot')
     .eq('room_id', roomId)
     .single()
 
-  const hasSnapshot = !!(snap?.snapshot)
-
-  if (hasSnapshot) {
-    let bytes: Uint8Array
+  if (snap?.snapshot) {
     try {
-      bytes = decodeSnapshotFromDB(snap!.snapshot)
-    } catch (decodeErr) {
-      bytes = new Uint8Array(0)
-    }
-
-    if (bytes.length >= 2) {
-      try {
+      const bytes = decodeSnapshotFromDB(snap.snapshot)
+      if (bytes.length >= 2) {
         Y.applyUpdate(doc, bytes)
-      } catch (applyErr) {
       }
+    } catch (applyErr) {
+      // Start with empty doc
     }
   }
 
@@ -108,7 +101,7 @@ async function initRoom(roomId: string): Promise<RoomState> {
     w.push({
       userId: ev.user_id,
       timestamp: new Date(ev.timestamp as string).getTime(),
-      text: (ev.payload as Record<string, unknown>)?.textSnapshot as string ?? ''
+      text: (ev.payload as Record<string, unknown>)?.finalText as string ?? ''
     })
     editWindows.set(ev.node_id, w)
   }
@@ -149,10 +142,9 @@ setInterval(async () => {
   for (const [roomId, room] of rooms.entries()) {
     if (room.clients.size === 0 && Date.now() - room.lastActivityAt > 5 * 60000) {
       const snapshot = Y.encodeStateAsUpdate(room.doc)
-      const { error } = await db.from('yjs_snapshots').upsert({
+      await db.from('yjs_snapshots').upsert({
         room_id: roomId, snapshot: encodeSnapshotForDB(snapshot), updated_at: new Date().toISOString()
       })
-      if (error) console.error('[room:evict] upsert FAILED for room', roomId, ':', error)
       clearTimeout(persistTimers.get(roomId))
       persistTimers.delete(roomId)
       rooms.delete(roomId)
@@ -190,10 +182,13 @@ export async function applyMutation(
 
   room.lastActivityAt = Date.now()
 
-  const { data: event } = await writeEvent(roomId, fromSocket.userId, 'node:updated', nodeId, { textSnapshot })
-
-  if (event) scheduleTask(roomId, nodeId, fromSocket.userId)
-  if (event && textSnapshot) recordEdit(roomId, nodeId, fromSocket.userId, textSnapshot, room.editWindows)
+  if (textSnapshot) {
+    const eventResult = await writeEvent(roomId, fromSocket.userId, 'node:updated', nodeId, { textSnapshot })
+    if (eventResult && eventResult.id) {
+      scheduleTask(roomId, nodeId, fromSocket.userId)
+      recordEdit(roomId, nodeId, fromSocket.userId, textSnapshot, room.editWindows)
+    }
+  }
 
   scheduleSnapshot(roomId, room.doc)
   
