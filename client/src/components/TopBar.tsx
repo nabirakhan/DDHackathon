@@ -2,7 +2,7 @@ import { useRoomJoinedState } from '../hooks/useRoomJoinedState'
 import { useConnectionStatus } from '../hooks/useConnectionStatus'
 import { useEffect, useState } from 'react'
 import { wsClient } from '../lib/wsClient'
-import { useAuth } from '../hooks/useAuth'
+import { getDisplayName } from '../hooks/useAuth'
 import { Wifi, WifiOff, RefreshCw, Clock, CheckSquare, Zap } from 'lucide-react'
 
 interface Props {
@@ -32,7 +32,6 @@ function WsIndicator() {
 }
 
 export function TopBar({ roomId: _roomId }: Props) {
-  const { user } = useAuth()
   const { sessionStartedAt, decisionCount } = useRoomJoinedState()
   const [now, setNow] = useState(Date.now())
   const [actionItems, setActionItems] = useState(0)
@@ -57,7 +56,7 @@ export function TopBar({ roomId: _roomId }: Props) {
   const secs = Math.floor((elapsed % 60_000) / 1000)
   const showNudge = elapsed > 30_000 && decisionCount === 0
 
-  const name = user?.email?.split('@')[0] ?? 'anon'
+  const name = getDisplayName()
 
   return (
     <div style={{

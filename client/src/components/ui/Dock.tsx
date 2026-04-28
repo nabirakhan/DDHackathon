@@ -16,6 +16,7 @@ interface DockProps {
   dockHeight?: number
   baseItemSize?: number
   spring?: { mass: number; stiffness: number; damping: number }
+  aiActive?: boolean
 }
 
 function DockItem({
@@ -76,13 +77,14 @@ export function Dock({
   distance = 100,
   baseItemSize = 40,
   spring = { mass: 0.1, stiffness: 150, damping: 12 },
+  aiActive = false,
 }: DockProps) {
   const mouseX = useMotionValue(Infinity)
 
   return (
     <div className="dock-outer">
       <div
-        className="dock-panel"
+        className={`dock-panel${aiActive ? ' ai-active' : ''}`}
         onMouseMove={(e) => mouseX.set(e.clientX)}
         onMouseLeave={() => mouseX.set(Infinity)}
       >

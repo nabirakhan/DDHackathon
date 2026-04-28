@@ -79,12 +79,12 @@ export default function Home() {
   const signOut = () => supabase.auth.signOut()
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#1A1814' }}>
+    <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#1A1C1E' }}>
       {/* Background */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        <SoftAurora color1="#5D5646" color2="#3E5974" speed={0.2} brightness={0.45} bandSpread={0.4} enableMouseInteraction={false} />
+        <SoftAurora color1="#5D5646" color2="#3E5974" speed={0.18} brightness={0.4} bandSpread={0.38} enableMouseInteraction={false} />
       </div>
-      <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'rgba(26, 24, 20, 0.6)' }} />
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'rgba(26, 28, 30, 0.62)' }} />
 
       {/* Top bar */}
       <div style={{

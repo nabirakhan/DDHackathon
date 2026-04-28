@@ -3,20 +3,23 @@
 /* ── Ironside Command palette ── */
 :root {
   --bone: #E8E0D0;
+  --linen: #EEEAE2;
   --stone: #C8BCA8;
   --parchment: #F5F0E8;
-  --bronze: #B8860B;
+  --bronze: #A07D54;
+  --bronze-warm: #B8860B;
   --bronze-light: #D4A017;
   --olive: #5D5646;
   --olive-light: #7A7260;
   --slate: #3E5974;
   --slate-light: #5B7A9E;
   --ash: #8B8680;
+  --charcoal: #1A1C1E;
   --deep-stone: #2C2820;
   --ink: #1A1814;
 
   /* Semantic */
-  --bg-base: var(--deep-stone);
+  --bg-base: var(--charcoal);
   --bg-surface: rgba(255, 255, 255, 0.06);
   --bg-glass: rgba(255, 255, 255, 0.08);
   --bg-glass-hover: rgba(255, 255, 255, 0.12);
@@ -29,7 +32,7 @@
   /* Glass effect */
   --glass-blur: blur(20px);
   --glass-contrast: contrast(110%);
-  --glass-bg: rgba(28, 24, 20, 0.6);
+  --glass-bg: rgba(26, 28, 30, 0.65);
 
   /* Typography */
   --font-display: 'Syne', sans-serif;
@@ -41,6 +44,12 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-pill: 999px;
+
+  /* Shadows — olive-tinted */
+  --shadow-sm: 0 2px 8px rgba(93, 86, 70, 0.25);
+  --shadow-md: 0 8px 32px rgba(93, 86, 70, 0.3);
+  --shadow-lg: 0 16px 48px rgba(93, 86, 70, 0.35);
+  --shadow-panel: 0 8px 32px rgba(26, 28, 30, 0.5), 0 1px 0 rgba(255,255,255,0.04) inset;
 }
 
 *, *::before, *::after {
@@ -78,14 +87,61 @@ body {
   border: 1px solid var(--border-subtle);
 }
 
+/* ── Ironside Panel ── */
+.ironside-panel {
+  background: rgba(26, 28, 30, 0.7);
+  backdrop-filter: contrast(112%) blur(24px);
+  -webkit-backdrop-filter: contrast(112%) blur(24px);
+  border: 1px solid rgba(200, 188, 168, 0.13);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+  transition: border-color 0.5s ease, background 0.5s ease;
+}
+
+.ironside-panel:hover {
+  border-color: rgba(200, 188, 168, 0.2);
+}
+
+/* ── Canvas dot grid background ── */
+.canvas-grid {
+  background-color: var(--linen);
+  background-image: radial-gradient(circle, rgba(93, 86, 70, 0.35) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ── Bronze glow ── */
+.glow-bronze {
+  box-shadow: 0 0 12px rgba(160, 125, 84, 0.4), 0 0 32px rgba(160, 125, 84, 0.15);
+}
+
+/* ── Custom scrollbar ── */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(160, 125, 84, 0.35);
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(160, 125, 84, 0.55);
+}
+
 /* ── Floating panel ── */
 .floating-panel {
   position: fixed;
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05) inset;
+  box-shadow: var(--shadow-panel);
 }
 
-/* ── Scrollbar ── */
+/* ── State crossfade ── */
+.state-crossfade {
+  transition: color 0.5s ease, background 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+}
+
+/* ── Scrollbar (global) ── */
 ::-webkit-scrollbar {
   width: 4px;
 }

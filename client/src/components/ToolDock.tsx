@@ -14,6 +14,16 @@ interface Props {
 export function ToolDock({ roomId: _roomId }: Props) {
   const editor = useEditor()
   const navigate = useNavigate()
+  const [aiActive, setAiActive] = useState(false)
+
+  useEffect(() => {
+    return wsClient.on((msg) => {
+      if (msg.type === 'mutation:broadcast') {
+        setAiActive(true)
+        setTimeout(() => setAiActive(false), 2200)
+      }
+    })
+  }, [])
 
   const items = [
     { icon: <Home size={18} />, label: 'Home', onClick: () => navigate('/') },
@@ -41,6 +51,7 @@ export function ToolDock({ roomId: _roomId }: Props) {
         distance={100}
         baseItemSize={38}
         spring={{ mass: 0.1, stiffness: 160, damping: 14 }}
+        aiActive={aiActive}
       />
     </div>
   )
@@ -53,7 +64,7 @@ export function AIStatusPill() {
     return wsClient.on((msg) => {
       if (msg.type === 'mutation:broadcast') {
         setActive(true)
-        setTimeout(() => setActive(false), 1800)
+        setTimeout(() => setActive(false), 2200)
       }
     })
   }, [])
@@ -63,30 +74,35 @@ export function AIStatusPill() {
   return (
     <div style={{
       position: 'fixed',
-      bottom: '82px',
+      bottom: '84px',
       left: '50%',
       transform: 'translateX(-50%)',
       zIndex: 50,
       padding: '5px 14px',
       borderRadius: '999px',
-      background: 'rgba(28, 24, 20, 0.85)',
-      border: '1px solid rgba(184, 134, 11, 0.35)',
-      backdropFilter: 'blur(12px)',
-      fontFamily: 'DM Mono, monospace',
+      background: 'rgba(26, 28, 30, 0.88)',
+      border: '1px solid rgba(160, 125, 84, 0.4)',
+      backdropFilter: 'contrast(112%) blur(16px)',
+      WebkitBackdropFilter: 'contrast(112%) blur(16px)',
+      fontFamily: 'Syne, sans-serif',
       fontSize: '11px',
+      fontWeight: 800,
+      letterSpacing: '1px',
       color: '#D4A017',
       display: 'flex',
       alignItems: 'center',
       gap: '7px',
       animation: 'fade-in-up 0.3s ease-out',
+      boxShadow: '0 4px 16px rgba(93, 86, 70, 0.3)',
     }}>
       <span style={{
         width: '6px', height: '6px', borderRadius: '50%',
-        background: '#D4A017',
-        boxShadow: '0 0 6px #D4A017',
+        background: '#A07D54',
+        boxShadow: '0 0 8px rgba(160, 125, 84, 0.8)',
         display: 'inline-block',
+        animation: 'spin-slow 2s linear infinite',
       }} />
-      AI classifying intent...
+      AI CLASSIFYING
     </div>
   )
 }
