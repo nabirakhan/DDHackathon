@@ -4,7 +4,7 @@ import { requireAuth } from '../middleware/requireAuth.js'
 import { getMembership } from '../middleware/rbac.js'
 
 const router = Router()
-
+// new
 router.get('/:id/events', requireAuth, async (req: any, res: any) => {
   const role = await getMembership(req.userId, req.params.id)
   if (!role) return res.status(403).json({ error: 'Not a member' })
