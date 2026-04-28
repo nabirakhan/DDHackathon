@@ -17,10 +17,10 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          tldraw: ['tldraw'],
-          yjs: ['yjs'],
-          vendor: ['react', 'react-dom', 'react-router-dom'],
+        manualChunks: (id) => {
+          if (id.includes('tldraw')) return 'tldraw'
+          if (id.includes('yjs')) return 'yjs'
+          if (id.includes('node_modules')) return 'vendor'
         },
       },
     },
