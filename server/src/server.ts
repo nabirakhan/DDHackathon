@@ -93,20 +93,9 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 const server = createServer(app)
 const wss = new WebSocketServer({ noServer: true })
 
-// WebSocket upgrade with CORS
+// WebSocket upgrade — origin check skipped; JWT auth in attachAuth() is the security gate
 server.on('upgrade', (req, socket, head) => {
   const origin = req.headers.origin
-  const allowed = getAllowedOrigins()
-  
-  console.log(`[WebSocket] Upgrade request from origin: ${origin}`)
-  
-  // In production, check origin
-  if (process.env.NODE_ENV === 'production' && origin && !allowed.includes(origin)) {
-    console.log(`[WebSocket] ❌ Blocked origin: ${origin}`)
-    socket.destroy()
-    return
-  }
-  
   console.log(`[WebSocket] ✅ Accepting connection from: ${origin || 'unknown'}`)
   wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req))
 })
