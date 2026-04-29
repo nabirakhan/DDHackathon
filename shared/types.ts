@@ -95,7 +95,7 @@ export type NodeContestedMessage = {
 }
 export type NodeDecisionLockedMessage = {
   type: 'node:decision_locked'
-  payload: { nodeId: string }
+  payload: { nodeId: string; text?: string }
 }
 export type NodeUnlockedMessage = {      // NEW
   type: 'node:unlocked'

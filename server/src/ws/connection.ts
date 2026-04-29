@@ -2,9 +2,20 @@ import type { WSClientMessage } from '@shared/types'
 import type { AuthSocket } from './types.js'
 import { db } from '../db/supabase.js'
 import { checkPermission, getMembership, aclCache } from '../middleware/rbac.js'
-import { applyMutation } from './yjsHandler.js'
+import { applyMutation, getRoom } from './yjsHandler.js'
 import { handleRoomJoin } from './replayHandler.js'
 import { broadcastToRoom } from './hub.js'
+
+function getNodeText(roomId: string, nodeId: string): string | undefined {
+  const room = getRoom(roomId)
+  if (!room) return undefined
+  const shape = room.doc.getMap('shapes').get(nodeId) as any
+  if (!shape) return undefined
+  const props = typeof shape.get === 'function' ? shape.get('props') : shape?.props
+  if (!props) return undefined
+  const text = typeof props.get === 'function' ? props.get('text') : props?.text
+  return typeof text === 'string' && text.trim() ? text.trim() : undefined
+}
 
 function send(socket: AuthSocket, msg: unknown) {
   if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(msg))
@@ -66,7 +77,7 @@ export async function handleMessage(socket: AuthSocket, msg: WSClientMessage) {
         .is('resolved_at', null)
       broadcastToRoom(msg.payload.roomId, {
         type: 'node:decision_locked',
-        payload: { nodeId: msg.payload.nodeId }
+        payload: { nodeId: msg.payload.nodeId, text: getNodeText(msg.payload.roomId, msg.payload.nodeId) }
       })
       break
     }
@@ -117,6 +128,10 @@ export async function handleMessage(socket: AuthSocket, msg: WSClientMessage) {
         locked_by: socket.userId
       }, { onConflict: 'room_id,node_id' })
       aclCache.delete(`${msg.payload.roomId}:${msg.payload.nodeId}`)
+      broadcastToRoom(msg.payload.roomId, {
+        type: 'node:decision_locked',
+        payload: { nodeId: msg.payload.nodeId, text: getNodeText(msg.payload.roomId, msg.payload.nodeId) }
+      })
       break
     }
 
