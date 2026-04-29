@@ -47,19 +47,13 @@ async function checkContest(roomId: string, nodeId: string, editWindows: Map<str
     else byUser.set(edit.userId, { count: 1, lastText: edit.text })
   }
 
-  // Require 2+ distinct users, each with 3+ edits (raises bar against stale anonymous sessions)
+  // Require 2+ distinct users, each with 2+ edits
   if (byUser.size < 2) return
-  if ([...byUser.values()].some(u => u.count < 3)) return
+  if ([...byUser.values()].some(u => u.count < 2)) return
 
   // Latest texts must actually differ
   const texts = [...byUser.values()].map(u => u.lastText)
   if (texts.every(t => t === texts[0])) return
-
-  // Reject if one text is a prefix of another — same person mid-typing across sessions
-  const sorted = [...texts].sort((a, b) => a.length - b.length)
-  for (let i = 0; i < sorted.length - 1; i++) {
-    if (sorted[i + 1].toLowerCase().startsWith(sorted[i].toLowerCase())) return
-  }
 
   // Don't re-open if already an active contest
   const { data: existing } = await db.from('contested_nodes')
