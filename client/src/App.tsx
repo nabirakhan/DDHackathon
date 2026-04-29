@@ -24,11 +24,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   useEffect(() => {
-    // Wake Render from sleep before attempting WebSocket
+    // Connect WebSocket
+    wsClient.connect(WS_URL)
+    
+    // Start keep-alive pings
     const stopKeepAlive = startKeepAlive(SERVER_URL)
-    fetch(`${SERVER_URL}/health`)
-      .catch(() => {})
-      .finally(() => wsClient.connect(WS_URL))
+    
     return () => {
       stopKeepAlive()
       wsClient.disconnect()

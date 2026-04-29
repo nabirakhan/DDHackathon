@@ -33,7 +33,50 @@ app.use(rateLimit({
 
 app.use(express.json({ limit: '1mb' }))
 
-app.use(cors({ origin: true, credentials: true }))
+// Fixed CORS configuration
+const getAllowedOrigins = (): string[] => {
+  const origins: string[] = []
+  
+  // Production origins
+  if (process.env.CLIENT_ORIGIN) {
+    origins.push(process.env.CLIENT_ORIGIN.replace(/\/$/, '')) // Remove trailing slash
+  }
+  
+  // Always allow Vercel preview deployments (optional)
+  origins.push('https://ligma-brigade.vercel.app')
+  
+  // Development
+  if (process.env.NODE_ENV !== 'production') {
+    origins.push('http://localhost:5173')
+    origins.push('http://localhost:3000')
+  }
+  
+  console.log('[CORS] Allowed origins:', origins)
+  return origins
+}
+
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) {
+      return cb(null, true)
+    }
+    
+    const allowed = getAllowedOrigins()
+    const isAllowed = allowed.includes(origin) || process.env.NODE_ENV !== 'production'
+    
+    if (isAllowed) {
+      console.log(`[CORS] ✅ Allowed: ${origin}`)
+      return cb(null, true)
+    }
+    
+    console.log(`[CORS] ❌ Blocked: ${origin}`)
+    cb(new Error('CORS: origin not allowed'))
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+}))
 
 // Pre-flight requests
 app.options('*', cors())
@@ -50,9 +93,20 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 const server = createServer(app)
 const wss = new WebSocketServer({ noServer: true })
 
-// WebSocket upgrade — origin check skipped; JWT auth in attachAuth() is the security gate
+// WebSocket upgrade with CORS
 server.on('upgrade', (req, socket, head) => {
   const origin = req.headers.origin
+  const allowed = getAllowedOrigins()
+  
+  console.log(`[WebSocket] Upgrade request from origin: ${origin}`)
+  
+  // In production, check origin
+  if (process.env.NODE_ENV === 'production' && origin && !allowed.includes(origin)) {
+    console.log(`[WebSocket] ❌ Blocked origin: ${origin}`)
+    socket.destroy()
+    return
+  }
+  
   console.log(`[WebSocket] ✅ Accepting connection from: ${origin || 'unknown'}`)
   wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req))
 })
