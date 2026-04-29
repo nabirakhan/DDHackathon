@@ -12,7 +12,6 @@ export function NodeLockButton({ roomId }: { roomId: string }) {
   const [selectedNode, setSelectedNode] = useState<TLShapeId | null>(null)
   const [lockedNodes, setLockedNodes] = useState<Set<string>>(new Set())
 
-  // Subscribe to lock/unlock events
   useEffect(() => {
     const unsubscribe = wsClient.on((msg) => {
       if (msg.type === 'node:decision_locked') {
@@ -29,7 +28,6 @@ export function NodeLockButton({ roomId }: { roomId: string }) {
     return unsubscribe
   }, [])
 
-  // Poll for selected shape changes (since tldraw doesn't have standard event emitters)
   useEffect(() => {
     if (!editor) return
     
@@ -54,7 +52,6 @@ export function NodeLockButton({ roomId }: { roomId: string }) {
     }
   }, [editor])
 
-  // Only show for lead
   if (role !== 'lead') return null
 
   const isLocked = selectedNode ? lockedNodes.has(selectedNode) : false
