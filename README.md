@@ -4,6 +4,12 @@ A real-time collaborative canvas for teams. Multiple users share a single infini
 
 ---
 
+## Architecture Diagram
+
+![LIGMA System Architecture](docs/architecture.png)
+
+---
+
 ## Architecture
 
 ### Frontend (`client/`)
