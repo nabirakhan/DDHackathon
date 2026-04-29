@@ -33,50 +33,7 @@ app.use(rateLimit({
 
 app.use(express.json({ limit: '1mb' }))
 
-// Fixed CORS configuration
-const getAllowedOrigins = (): string[] => {
-  const origins: string[] = []
-  
-  // Production origins
-  if (process.env.CLIENT_ORIGIN) {
-    origins.push(process.env.CLIENT_ORIGIN.replace(/\/$/, '')) // Remove trailing slash
-  }
-  
-  // Always allow Vercel preview deployments (optional)
-  origins.push('https://ligma-brigade.vercel.app')
-  
-  // Development
-  if (process.env.NODE_ENV !== 'production') {
-    origins.push('http://localhost:5173')
-    origins.push('http://localhost:3000')
-  }
-  
-  console.log('[CORS] Allowed origins:', origins)
-  return origins
-}
-
-app.use(cors({
-  origin: (origin, cb) => {
-    // Allow requests with no origin (like mobile apps or curl)
-    if (!origin) {
-      return cb(null, true)
-    }
-    
-    const allowed = getAllowedOrigins()
-    const isAllowed = allowed.includes(origin) || process.env.NODE_ENV !== 'production'
-    
-    if (isAllowed) {
-      console.log(`[CORS] ✅ Allowed: ${origin}`)
-      return cb(null, true)
-    }
-    
-    console.log(`[CORS] ❌ Blocked: ${origin}`)
-    cb(new Error('CORS: origin not allowed'))
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-}))
+app.use(cors({ origin: true, credentials: true }))
 
 // Pre-flight requests
 app.options('*', cors())
