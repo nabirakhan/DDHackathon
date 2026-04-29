@@ -38,6 +38,7 @@ export function useYjsBinding(roomId: string) {
   const editorRef = useRef(editor)
   const pendingBatch = useRef<Array<[string, unknown, 'add' | 'update' | 'remove']>>([])
   const rafId = useRef<number | null>(null)
+  const isJoinedRef = useRef(false)
 
   useEffect(() => { editorRef.current = editor }, [editor])
 
@@ -125,9 +126,10 @@ export function useYjsBinding(roomId: string) {
     return () => yShapes.unobserve(observer)
   }, [yShapes, store])
 
-  // Inbound WebSocket messages
+  // FIXED: Inbound WebSocket messages - SYNC pattern (old working version)
   useEffect(() => {
     const unsub = wsClient.on((msg) => {
+      // SYNC mutation broadcast - apply immediately
       if (msg.type === 'mutation:broadcast') {
         const bytes = new Uint8Array(msg.payload.yjsUpdate)
         try {
@@ -137,38 +139,24 @@ export function useYjsBinding(roomId: string) {
         }
       }
 
+      // FIXED: room:joined - SYNC application (no async race)
       if (msg.type === 'room:joined') {
-        void (async () => {
-          const raw = new Uint8Array(msg.payload.yjsDiff)
-          let bytes = raw
-          if (msg.payload.isCompressed && raw.length > 0) {
-            try {
-              const ds = new DecompressionStream('deflate')
-              const writer = ds.writable.getWriter()
-              const reader = ds.readable.getReader()
-              writer.write(raw)
-              writer.close()
-              const chunks: Uint8Array[] = []
-              while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
-                chunks.push(value)
-              }
-              const total = chunks.reduce((s, c) => s + c.length, 0)
-              bytes = new Uint8Array(total)
-              let offset = 0
-              for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length }
-            } catch (err) {
-              console.error('[ws:inbound] decompression failed:', err)
-            }
-          }
+        // Prevent double-apply on reconnection
+        if (isJoinedRef.current) return
+        isJoinedRef.current = true
+        
+        // Apply sync immediately
+        const bytes = new Uint8Array(msg.payload.yjsDiff)
+        if (bytes.length > 0) {
           try {
-            if (bytes.length > 0) Y.applyUpdate(ydoc, bytes, 'remote')
+            Y.applyUpdate(ydoc, bytes, 'remote')
           } catch (err) {
             console.error('[ws:inbound] room:joined applyUpdate threw:', err)
           }
-          setRoomReady(true)
-        })()
+        }
+        
+        // Mark room ready AFTER sync update applied
+        setRoomReady(true)
         return
       }
 

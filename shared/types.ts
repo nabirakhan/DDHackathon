@@ -21,6 +21,7 @@ export type MutationApplyMessage = {
     nodeId: string
     yjsUpdate: number[]
     textSnapshot?: string
+    isAIClassified?: boolean  // NEW: for AI classifier pill
   }
 }
 export type AwarenessUpdateMessage = {
@@ -52,7 +53,7 @@ export type WSClientMessage =
   | AwarenessUpdateMessage 
   | VoteCastMessage 
   | DecisionLockMessage 
-  | NodeUnlockMessage      // NEW
+  | NodeUnlockMessage
   | NodeLockRequestMessage
 
 export type RoomJoinedMessage = {
@@ -67,7 +68,7 @@ export type RoomJoinedMessage = {
 }
 export type MutationBroadcastMessage = {
   type: 'mutation:broadcast'
-  payload: { yjsUpdate: number[]; nodeId: string; eventType?: 'node:created' | 'node:updated' | 'node:deleted' }
+  payload: { yjsUpdate: number[]; nodeId: string; eventType?: 'node:created' | 'node:updated' | 'node:deleted'; isAIClassified?: boolean }
 }
 export type AwarenessBroadcastMessage = {
   type: 'awareness:broadcast'
@@ -97,7 +98,7 @@ export type NodeDecisionLockedMessage = {
   type: 'node:decision_locked'
   payload: { nodeId: string }
 }
-export type NodeUnlockedMessage = {      // NEW
+export type NodeUnlockedMessage = {
   type: 'node:unlocked'
   payload: { nodeId: string }
 }
@@ -114,7 +115,7 @@ export type TaskUpdatedMessage = {
   payload: { taskId: string; status: string; text?: string; intent?: string }
 }
 export type AuthRefreshedMessage = { type: 'auth:refreshed' }
-export type ErrorPermissionDeniedMessage = {
+export type ErpZEAWYtiB6bJ16NuLbGCc6CZ6jJdKfb63 = {
   type: 'error:permission_denied'
   payload: { code: 'NOT_A_MEMBER' | 'INSUFFICIENT_ROLE' | 'NODE_LOCKED' | 'ROOM_MISMATCH' }
 }
@@ -134,12 +135,12 @@ export type WSServerMessage =
   | MemberRemovedMessage
   | NodeContestedMessage
   | NodeDecisionLockedMessage
-  | NodeUnlockedMessage      // NEW
+  | NodeUnlockedMessage
   | VoteUpdatedMessage
   | TaskCreatedMessage
   | TaskUpdatedMessage
   | AuthRefreshedMessage
-  | ErrorPermissionDeniedMessage
+  | ErpZEAWYtiB6bJ16NuLbGCc6CZ6jJdKfb63
   | ErrorMalformedUpdateMessage
   | ErrorContestResolvedMessage
   | ErrorInternalMessage
