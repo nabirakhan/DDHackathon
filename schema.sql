@@ -109,3 +109,17 @@ CREATE POLICY tasks_member_select ON tasks FOR SELECT
 -- WITH d AS (DELETE FROM events WHERE id = 1 RETURNING *)
 -- SELECT count(*) AS deleted_count FROM d;
 -- Returns: 0 (RULE blocks it)
+
+-- !! RUN THIS IN SUPABASE SQL EDITOR !!
+CREATE TABLE IF NOT EXISTS node_tags (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+  node_id TEXT NOT NULL,
+  tag TEXT NOT NULL,
+  created_by UUID,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  CONSTRAINT node_tags_unique UNIQUE(room_id, node_id, tag)
+);
+ALTER TABLE node_tags ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "members_read_tags" ON node_tags FOR SELECT
+  USING (EXISTS (SELECT 1 FROM room_members WHERE room_id = node_tags.room_id AND user_id = auth.uid()));

@@ -184,11 +184,12 @@ router.post('/:id/nodes/:nodeId/tags', requireAuth, async (req: any, res: any) =
   const role = await getMembership(req.userId, roomId)
   if (!role) return res.status(403).json({ error: 'Not a member' })
   const cleanTag = tag.trim().toLowerCase()
+  // Broadcast first so real-time works even if DB is slow
+  broadcastToRoom(roomId, { type: 'tag:added', payload: { nodeId, tag: cleanTag } })
   const { error } = await db.from('node_tags')
     .upsert({ room_id: roomId, node_id: nodeId, tag: cleanTag, created_by: req.userId },
       { onConflict: 'room_id,node_id,tag' })
-  if (error) return res.status(500).json({ error: 'Internal server error' })
-  broadcastToRoom(roomId, { type: 'tag:added', payload: { nodeId, tag: cleanTag } })
+  if (error) { console.error('[tags] insert error (table may not exist — run schema.sql):', error.message); return res.status(500).json({ error: 'Internal server error' }) }
   res.json({ ok: true })
 })
 
@@ -196,10 +197,10 @@ router.delete('/:id/nodes/:nodeId/tags/:tag', requireAuth, async (req: any, res:
   const { id: roomId, nodeId, tag } = req.params
   const role = await getMembership(req.userId, roomId)
   if (!role) return res.status(403).json({ error: 'Not a member' })
+  broadcastToRoom(roomId, { type: 'tag:removed', payload: { nodeId, tag } })
   const { error } = await db.from('node_tags')
     .delete().eq('room_id', roomId).eq('node_id', nodeId).eq('tag', tag)
-  if (error) return res.status(500).json({ error: 'Internal server error' })
-  broadcastToRoom(roomId, { type: 'tag:removed', payload: { nodeId, tag } })
+  if (error) console.error('[tags] delete error:', error.message)
   res.json({ ok: true })
 })
 

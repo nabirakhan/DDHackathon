@@ -15,6 +15,7 @@ import { ToolDock, AIStatusPill } from '../components/ToolDock'
 import { TagsPanel } from '../components/TagsPanel'
 import { TagsOverlay } from '../components/TagsOverlay'
 import { useTagStore } from '../hooks/useTagStore'
+import { useLockedShapes } from '../hooks/useLockedShapes'
 import { wsClient } from '../lib/wsClient'
 import { SoftAurora } from '../components/ui/SoftAurora'
 import { getDisplayName } from '../hooks/useAuth'
@@ -25,6 +26,7 @@ function RoomInner({ roomId }: { roomId: string }) {
   const { role } = useMyRole(roomId)
   const { tags, addTag, removeTag } = useTagStore(roomId)
   const [tagsOpen, setTagsOpen] = useState(false)
+  useLockedShapes(editor, roomId)
 
   useEffect(() => {
     wsClient.send({ type: 'room:join', payload: { roomId, clientStateVector: [], displayName: getDisplayName() } })

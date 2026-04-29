@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle2, Circle } from 'lucide-react'
+import { CheckCircle2, Check } from 'lucide-react'
 import { wsClient } from '../lib/wsClient'
 import { useEditor } from '../context/CanvasContext'
 import { supabase } from '../lib/supabase'
@@ -144,7 +144,6 @@ export function TaskBoard({ roomId }: { roomId: string }) {
                 {openTasks.map((t, i) => {
                   const meta = intentMeta[t.intent ?? 'action_item'] ?? intentMeta.action_item
                   const borderColor = intentBorderColor[t.intent ?? 'action_item'] ?? intentBorderColor.action_item
-                  const isAction = !t.intent || t.intent === 'action_item'
                   return (
                     <motion.div
                       key={t.id}
@@ -162,19 +161,7 @@ export function TaskBoard({ roomId }: { roomId: string }) {
                         borderRadius: '1.25rem', textAlign: 'left', cursor: 'pointer',
                       }}
                     >
-                      {isAction ? (
-                        <button
-                          onClick={(e) => markDone(e, t.id)}
-                          title="Mark done"
-                          style={{ flexShrink: 0, marginTop: '2px', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'rgba(132,169,140,0.5)', transition: 'color 0.15s' }}
-                          onMouseEnter={e => (e.currentTarget.style.color = '#84A98C')}
-                          onMouseLeave={e => (e.currentTarget.style.color = 'rgba(132,169,140,0.5)')}
-                        >
-                          <Circle size={14} />
-                        </button>
-                      ) : (
-                        <span style={{ flexShrink: 0, marginTop: '3px', width: '8px', height: '8px', borderRadius: '50%', background: meta.color, display: 'inline-block' }} />
-                      )}
+                      <span style={{ flexShrink: 0, marginTop: '3px', width: '8px', height: '8px', borderRadius: '50%', background: meta.color, display: 'inline-block' }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                           <span style={{
@@ -192,6 +179,15 @@ export function TaskBoard({ roomId }: { roomId: string }) {
                           {new Date(t.created_at).toLocaleTimeString()}
                         </div>
                       </div>
+                      <button
+                        onClick={(e) => markDone(e, t.id)}
+                        title="Mark done"
+                        style={{ flexShrink: 0, marginTop: '2px', background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'rgba(132,169,140,0.4)', transition: 'color 0.15s' }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#84A98C')}
+                        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(132,169,140,0.4)')}
+                      >
+                        <Check size={13} strokeWidth={2.5} />
+                      </button>
                     </motion.div>
                   )
                 })}
