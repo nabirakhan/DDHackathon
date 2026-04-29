@@ -1,110 +1,179 @@
-# LIGMA — Live Interactive Group Meeting Assistant
+# LIGMA — Live Interactive Group Meeting Application
 
-Real-time collaborative whiteboard with AI-powered intent classification, RBAC, and append-only audit logging.
+A real-time collaborative canvas for teams. Multiple users share a single infinite whiteboard, write sticky notes, lock decisions, track action items automatically, and tag any element.
 
-## Overview
-
-LIGMA is a collaborative canvas built on tldraw + Yjs CRDT sync. Every shape mutation is classified by AI (Claude Haiku → GPT-4o-mini → heuristic fallback) to extract action items and decisions automatically. Role-based access control enforces who can edit, lock, and manage nodes.
-
-## Local Setup
-
-```bash
-# 1. Clone and enter the repo
-git clone <repo>
-cd <repo>
-
-# 2. Install client deps
-cd client && npm install
-
-# 3. Install server deps
-cd ../server && npm install
-
-# 4. Configure environment
-cp client/.env.example client/.env      # fill in Supabase URL + anon key + server URL
-cp server/.env.example server/.env      # fill in Supabase service key + LLM keys
-
-# 5. Apply schema
-# Paste schema.sql into Supabase SQL editor and run it
-
-# 6. Run both in separate terminals
-cd client && npm run dev     # http://localhost:5173
-cd server && npm run dev     # http://localhost:3000
-```
+---
 
 ## Architecture
 
-```mermaid
-graph TD
-    Browser["Browser (tldraw + Yjs)"] -->|WebSocket| Server["Node.js Server"]
-    Server -->|service_role| Supabase["Supabase (Postgres + Auth)"]
-    Server -->|classify text| Claude["Claude Haiku (Plan A)"]
-    Server -->|fallback| GPT["GPT-4o-mini (Plan B)"]
-    Server -->|fallback| Heuristic["Keyword Heuristic (Plan C)"]
-    Server -->|broadcast Yjs diff| Browser
+### Frontend (`client/`)
+
+Built with **React + Vite + TypeScript**.
+
+| Layer | Technology |
+|---|---|
+| Canvas | [tldraw](https://tldraw.dev) — infinite whiteboard with built-in shape primitives |
+| Realtime sync | Yjs CRDT bound to tldraw's store via `useYjsBinding.ts` |
+| State | React hooks + context (`CanvasContext`, `useMyRole`, `useTagStore`) |
+| Styling | Inline styles — glassmorphism / SoftAurora WebGL background |
+| Routing | React Router v6 |
+| WebSocket client | Custom `wsClient.ts` with auth queue and reconnect logic |
+
+Key components:
+- `TaskBoard` — live action-item tracker, auto-populated by AI classification
+- `EventLog` — append-only audit log of canvas mutations
+- `TagsPanel` — per-node tag editor (shown on selection)
+- `TagsOverlay` — hover tag display rendered over canvas
+- `ContestedNodeOverlay` — conflict resolution UI for heavily-edited nodes
+- `NodeLockButton` — lead-only decision locking
+
+### Backend (`server/`)
+
+Built with **Node.js + Express + TypeScript**, deployed on Render.
+
+| Layer | Technology |
+|---|---|
+| HTTP API | Express — rooms, members, tasks, tags, events |
+| WebSocket | `ws` library — Yjs sync + awareness + realtime events |
+| CRDT engine | Yjs (`Y.Doc`) — in-memory per room, snapshotted to DB |
+| Auth | Supabase JWT validation on every WS message and HTTP request |
+| Permissions | RBAC middleware — lead / contributor / viewer per room |
+
+### Realtime Sync Layer
+
+**Strategy: Yjs CRDT (Conflict-free Replicated Data Type)**
+
+tldraw shapes are stored as a `Y.Map` inside a `Y.Doc`. Every mutation produces a compact binary Yjs update. The server:
+
+1. Receives `mutation:apply` from any client
+2. Applies the update to the in-memory `Y.Doc`
+3. Broadcasts the binary diff to all other clients in the room
+4. Debounces a snapshot write to Supabase every 10 seconds
+
+On join, the server computes a delta from the client's state vector and sends only the missing operations.
+
+**Why Yjs?**
+
+- Mathematically proven convergence — any two replicas that have seen the same set of operations will be in identical state, regardless of the order they were applied.
+- No central coordinator needed for conflict resolution — each operation is independent and commutative.
+- Handles simultaneous character insertion/deletion in text nodes natively — concurrent edits merge without overwrite.
+- Compact binary encoding keeps WebSocket payloads small.
+- First-class tldraw integration.
+
+**How concurrent edits resolve:**
+
+Each insertion carries a Lamport-style logical timestamp and a unique client ID. When two users type at the same position simultaneously, Yjs uses the client ID as a deterministic tiebreaker — both clients converge to the same merged string within one round-trip. Deletions are tombstoned rather than physically removed, so concurrent deletes never conflict.
+
+### Persistence Layer
+
+| Data | Storage |
+|---|---|
+| Canvas state | `yjs_snapshots` — binary Yjs state, upserted every ~10 s |
+| Events | `events` — append-only audit log, no UPDATE/DELETE allowed |
+| Tasks | `tasks` — action items with AI intent classification |
+| Node ACL | `node_acl` — per-node role requirements and lock state |
+| Contests | `contested_nodes` — edit conflict records and votes |
+| Tags | `node_tags` — per-element tags, unique per (room, node, tag) |
+
+All persistence via **Supabase** (PostgreSQL + RLS). The server uses the service-role key for writes; RLS policies guard client reads.
+
+**Why event-sourcing for the activity log?**
+
+The `events` table has SQL-level `NO UPDATE` / `NO DELETE` rules — rows are physically immutable. This gives a reliable audit trail for replaying session history and building the Event Log panel without risk of accidental mutation.
+
+---
+
+## Task Board Auto-sync
+
+When any user writes text on the canvas:
+
+1. tldraw mutation → Yjs update → `applyMutation()` on server
+2. Server extracts text from the shape's TipTap richText AST
+3. `taskExtractor.ts` debounces 3 seconds, then sends text to **Claude Haiku** via `aiClassifier.ts`
+4. Claude classifies intent: `action_item` | `decision` | `open_question` | `reference`
+5. Task is upserted to `tasks` (no duplicates — checks existing open task for that node)
+6. `task:created` or `task:updated` broadcast to all room clients
+7. `TaskBoard` receives the WS event and adds the card instantly
+
+Cards show category label + content. Clicking a card zooms the canvas to the source node.
+
+---
+
+## Multiuser Tagging
+
+Any canvas element can be tagged by any room member. Tags are stored in `node_tags` and broadcast via `tag:added` / `tag:removed` WebSocket events. Tags are hidden normally and appear as pills above an element on hover. Select any element to open the tag editor.
+
+**DB setup** — run once in Supabase SQL editor:
+
+```sql
+CREATE TABLE IF NOT EXISTS node_tags (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+  node_id TEXT NOT NULL,
+  tag TEXT NOT NULL,
+  created_by UUID,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  CONSTRAINT node_tags_unique UNIQUE(room_id, node_id, tag)
+);
+ALTER TABLE node_tags ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "members_read_tags" ON node_tags FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM room_members
+    WHERE room_id = node_tags.room_id AND user_id = auth.uid()
+  ));
 ```
 
-## Architecture Decisions
+---
 
-### Why Not @tldraw/sync?
+## Technical Choices
 
-We use a custom Yjs-over-WebSocket protocol instead of `@tldraw/sync` / `TLSocketRoom` because:
+| Choice | Rationale |
+|---|---|
+| **Yjs CRDT** | Proven convergence, compact binary encoding, native tldraw integration |
+| **tldraw** | Production-grade canvas with shape primitives, selection, and awareness built in |
+| **Append-only events table** | Immutable audit trail; enables activity replay without complex state reconstruction |
+| **Supabase** | Postgres with built-in auth, RLS, and realtime — no separate auth service needed |
+| **WebSocket (ws library)** | Full-duplex binary framing needed for Yjs update payloads |
+| **Claude Haiku (AI classification)** | Fast, cheap intent classification running server-side |
+| **Render (server) + Vercel (client)** | Simple Node.js hosting with persistent WS support; edge CDN for the static build |
 
-- **RBAC enforcement**: Every mutation must be validated against `node_acl` and `room_members` before being applied. `TLSocketRoom` is opaque — it exposes no per-mutation hooks.
-- **Audit logging**: Every mutation writes an immutable row to `events` via Postgres RULES. There is no injection point in `TLSocketRoom` for this.
-- **AI classification**: Text content must be extracted from each mutation to call the LLM classifier. Again, no hook in `TLSocketRoom`.
+---
 
-The custom protocol: client encodes tldraw store changes as `Y.Doc` updates, sends them as `mutation:apply` over WebSocket, server validates → applies → logs → broadcasts.
-
-### AI Strategy — LLM-First with Graceful Degradation
-
-The hackathon permits paid API calls via free credits. We maximize classification accuracy with a three-tier fallback:
-
-| Plan | Provider | Trigger |
-|------|----------|---------|
-| A | Anthropic Claude Haiku (~800ms) | Primary |
-| B | OpenAI GPT-4o-mini | Anthropic 429/error |
-| C | Keyword heuristic | Both APIs fail, or user rate-limited |
-
-All results cached by SHA-256 text hash. 10 LLM calls per user per minute (token bucket).
-
-### Event Sourcing
-
-`events` and `yjs_snapshots` are **separate systems**:
-- `yjs_snapshots`: binary Yjs state vector, used for cold-join sync
-- `events`: semantic audit log of what happened and when — not replayable into Yjs
-
-Postgres `RULES` (`no_update_events`, `no_delete_events`) enforce immutability at the DB engine level. Application code — including service_role — cannot UPDATE or DELETE event rows through normal SQL. Only a Postgres superuser (Supabase SQL editor admin) can bypass RULES, which is acceptable for a demo environment.
-
-### RBAC Fallback
-
-If a node has no `node_acl` row, the fallback required role is `'contributor'`. This rule **only applies to authenticated members**. Non-members are hard-rejected regardless of any ACL configuration.
-
-Role hierarchy: `lead (3) > contributor (2) > viewer (1)`.
-
-### Contested Node Detection
-
-CRDT solves the **technical** conflict (both edits are merged). Contested Node solves the **human** conflict (two people disagree on what a node should say).
-
-Detection: if ≥2 distinct users each edit the same node ≥4 times within 60 seconds, a contest is raised. The `versions` stored are **pre-merge text snapshots** from each user's WS payload — not unmerged CRDT state.
-
-Resolution: members vote; lead can lock as decision (freezes node for everyone, including lead).
-
-## Known Limitations
-
-- **5s data-loss window**: snapshot writes are debounced 5s. Ungraceful crash (kill -9) loses up to 5s of mutations. SIGTERM flushes all rooms.
-- **Single Render instance**: Y.Doc lives in-memory. Horizontal scaling requires a shared Yjs provider (e.g., y-redis), not implemented.
-- **Client-supplied textSnapshot**: The text sent for AI classification comes from the client WS payload, not parsed from the Yjs update server-side. A compromised client could send misleading text. Production would parse Yjs server-side.
-- **yjsUpdate as number[]**: Yjs binary is JSON-serialized as a number array, ~33% larger than raw bytes. MessagePack or base64 would be more efficient.
-- **In-memory rate limiter**: resets on server restart.
-- **TRUNCATE bypasses RULES**: Postgres superuser can TRUNCATE events. RULES only block UPDATE/DELETE at the statement level.
-- **Permission denial log**: 10s per-(user,node) dedup limits growth but doesn't bound total size.
-
-## Security
+## Local Development
 
 ```bash
-# Must return zero results before deploy
-grep -rE "\.from\(['\"](rooms|room_members|events|tasks|node_acl|contested_nodes|yjs_snapshots)['\"]\)\.(insert|update|delete|upsert)" client/src/
-grep -r "SUPABASE_SERVICE_KEY" client/src/
-grep -r "ANTHROPIC_API_KEY" client/src/
-grep -r "OPENAI_API_KEY" client/src/
+# 1. Install dependencies
+npm install
+cd client && npm install
+cd ../server && npm install
+
+# 2. Environment variables
+
+# client/.env
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+VITE_SERVER_URL=http://localhost:3001
+VITE_WS_URL=ws://localhost:3001
+
+# server/.env
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
+ANTHROPIC_API_KEY=...
+PORT=3001
+
+# 3. Run
+cd server && npm run dev   # http://localhost:3001
+cd client && npm run dev   # http://localhost:5173
 ```
+
+---
+
+## Roles
+
+| Role | Capabilities |
+|---|---|
+| **lead** | Full access — lock decisions, unlock nodes, manage members |
+| **contributor** | Create and edit shapes |
+| **viewer** | Read-only canvas |
+
+The first user to open a room URL is auto-assigned `lead`.

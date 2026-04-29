@@ -13,6 +13,9 @@ import { TopBar } from '../components/TopBar'
 import { ContestedNodeOverlay } from '../components/ContestedNodeOverlay'
 import { ToolDock, AIStatusPill } from '../components/ToolDock'
 import { NodeLockButton } from '../components/NodeLockButton'
+import { TagsPanel } from '../components/TagsPanel'
+import { TagsOverlay } from '../components/TagsOverlay'
+import { useTagStore } from '../hooks/useTagStore'
 import { wsClient } from '../lib/wsClient'
 import { SoftAurora } from '../components/ui/SoftAurora'
 import { getDisplayName } from '../hooks/useAuth'
@@ -21,6 +24,7 @@ function RoomInner({ roomId }: { roomId: string }) {
   useYjsBinding(roomId)
   const editor = useEditor()
   const { role } = useMyRole(roomId)
+  const { tags, addTag, removeTag } = useTagStore(roomId)
 
   useEffect(() => {
     wsClient.send({ type: 'room:join', payload: { roomId, clientStateVector: [], displayName: getDisplayName() } })
@@ -68,6 +72,8 @@ function RoomInner({ roomId }: { roomId: string }) {
             boxShadow: '0 0 0 1px rgba(0,0,0,0.12), 0 40px 100px rgba(0,0,0,0.5)',
           }}>
             <CanvasMount />
+            <TagsOverlay tags={tags} />
+            <TagsPanel tags={tags} addTag={addTag} removeTag={removeTag} />
           </main>
 
           <TaskBoard roomId={roomId} />

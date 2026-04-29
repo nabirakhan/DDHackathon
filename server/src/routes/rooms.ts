@@ -160,4 +160,47 @@ router.get('/:id/locked-nodes', requireAuth, async (req: any, res: any) => {
   res.json({ lockedNodes: (data ?? []).map((r: any) => r.node_id) })
 })
 
+router.get('/:id/tags', requireAuth, async (req: any, res: any) => {
+  const { id: roomId } = req.params
+  const role = await getMembership(req.userId, roomId)
+  if (!role) return res.status(403).json({ error: 'Not a member' })
+  const { data, error } = await db.from('node_tags')
+    .select('node_id, tag').eq('room_id', roomId)
+  if (error) return res.status(500).json({ error: 'Internal server error' })
+  const tags: Record<string, string[]> = {}
+  for (const row of (data ?? [])) {
+    if (!tags[row.node_id]) tags[row.node_id] = []
+    tags[row.node_id].push(row.tag)
+  }
+  res.json({ tags })
+})
+
+router.post('/:id/nodes/:nodeId/tags', requireAuth, async (req: any, res: any) => {
+  const { id: roomId, nodeId } = req.params
+  const { tag } = req.body
+  if (!tag || typeof tag !== 'string' || tag.trim().length === 0 || tag.trim().length > 20) {
+    return res.status(400).json({ error: 'Invalid tag' })
+  }
+  const role = await getMembership(req.userId, roomId)
+  if (!role) return res.status(403).json({ error: 'Not a member' })
+  const cleanTag = tag.trim().toLowerCase()
+  const { error } = await db.from('node_tags')
+    .upsert({ room_id: roomId, node_id: nodeId, tag: cleanTag, created_by: req.userId },
+      { onConflict: 'room_id,node_id,tag' })
+  if (error) return res.status(500).json({ error: 'Internal server error' })
+  broadcastToRoom(roomId, { type: 'tag:added', payload: { nodeId, tag: cleanTag } })
+  res.json({ ok: true })
+})
+
+router.delete('/:id/nodes/:nodeId/tags/:tag', requireAuth, async (req: any, res: any) => {
+  const { id: roomId, nodeId, tag } = req.params
+  const role = await getMembership(req.userId, roomId)
+  if (!role) return res.status(403).json({ error: 'Not a member' })
+  const { error } = await db.from('node_tags')
+    .delete().eq('room_id', roomId).eq('node_id', nodeId).eq('tag', tag)
+  if (error) return res.status(500).json({ error: 'Internal server error' })
+  broadcastToRoom(roomId, { type: 'tag:removed', payload: { nodeId, tag } })
+  res.json({ ok: true })
+})
+
 export default router

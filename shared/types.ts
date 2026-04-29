@@ -121,23 +121,27 @@ export type ErrorPermissionDeniedMessage = {
 export type ErrorMalformedUpdateMessage = { type: 'error:malformed_update'; payload: Record<string, never> }
 export type ErrorContestResolvedMessage = { type: 'error:contest_resolved'; payload: Record<string, never> }
 export type ErrorInternalMessage = { type: 'error:internal'; payload: Record<string, never> }
+export type TagAddedMessage = { type: 'tag:added'; payload: { nodeId: string; tag: string } }
+export type TagRemovedMessage = { type: 'tag:removed'; payload: { nodeId: string; tag: string } }
 
 export type WSServerMessage =
-  | RoomJoinedMessage 
-  | MutationBroadcastMessage 
-  | AwarenessBroadcastMessage 
+  | RoomJoinedMessage
+  | MutationBroadcastMessage
+  | AwarenessBroadcastMessage
   | AwarenessPeerLeftMessage
-  | RoleChangedMessage 
-  | MemberJoinedMessage 
+  | RoleChangedMessage
+  | MemberJoinedMessage
   | MemberRemovedMessage
-  | NodeContestedMessage 
-  | NodeDecisionLockedMessage 
+  | NodeContestedMessage
+  | NodeDecisionLockedMessage
   | NodeUnlockedMessage      // NEW
   | VoteUpdatedMessage
-  | TaskCreatedMessage 
-  | TaskUpdatedMessage 
+  | TaskCreatedMessage
+  | TaskUpdatedMessage
   | AuthRefreshedMessage
-  | ErrorPermissionDeniedMessage 
-  | ErrorMalformedUpdateMessage 
-  | ErrorContestResolvedMessage 
+  | ErrorPermissionDeniedMessage
+  | ErrorMalformedUpdateMessage
+  | ErrorContestResolvedMessage
   | ErrorInternalMessage
+  | TagAddedMessage
+  | TagRemovedMessage
