@@ -82,13 +82,18 @@ export function TaskBoard({ roomId }: { roomId: string }) {
 
   const markDone = async (e: React.MouseEvent, taskId: string) => {
     e.stopPropagation()
+    setTasks(t => t.map(task => task.id === taskId ? { ...task, status: 'done' as const } : task))
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    await fetch(`${SERVER_URL}/rooms/${roomId}/tasks/${taskId}`, {
+    if (!session) {
+      setTasks(t => t.map(task => task.id === taskId ? { ...task, status: 'open' as const } : task))
+      return
+    }
+    const res = await fetch(`${SERVER_URL}/rooms/${roomId}/tasks/${taskId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ status: 'done' }),
     })
+    if (!res.ok) setTasks(t => t.map(task => task.id === taskId ? { ...task, status: 'open' as const } : task))
   }
 
   const openTasks = tasks.filter(t => t.status === 'open')

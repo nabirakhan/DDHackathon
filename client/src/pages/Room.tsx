@@ -1,6 +1,6 @@
 // client/src/pages/Room.tsx
 import { useParams } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Toaster } from 'sonner'
 import { CanvasProvider, CanvasMount, useEditor } from '../context/CanvasContext'
 import { useYjsBinding } from '../hooks/useYjsBinding'
@@ -12,7 +12,6 @@ import { EventLog } from '../components/EventLog'
 import { TopBar } from '../components/TopBar'
 import { ContestedNodeOverlay } from '../components/ContestedNodeOverlay'
 import { ToolDock, AIStatusPill } from '../components/ToolDock'
-import { NodeLockButton } from '../components/NodeLockButton'
 import { TagsPanel } from '../components/TagsPanel'
 import { TagsOverlay } from '../components/TagsOverlay'
 import { useTagStore } from '../hooks/useTagStore'
@@ -25,6 +24,7 @@ function RoomInner({ roomId }: { roomId: string }) {
   const editor = useEditor()
   const { role } = useMyRole(roomId)
   const { tags, addTag, removeTag } = useTagStore(roomId)
+  const [tagsOpen, setTagsOpen] = useState(false)
 
   useEffect(() => {
     wsClient.send({ type: 'room:join', payload: { roomId, clientStateVector: [], displayName: getDisplayName() } })
@@ -73,14 +73,24 @@ function RoomInner({ roomId }: { roomId: string }) {
           }}>
             <CanvasMount />
             <TagsOverlay tags={tags} />
-            <TagsPanel tags={tags} addTag={addTag} removeTag={removeTag} />
+            <TagsPanel
+              open={tagsOpen}
+              onClose={() => setTagsOpen(false)}
+              tags={tags}
+              addTag={addTag}
+              removeTag={removeTag}
+            />
           </main>
 
           <TaskBoard roomId={roomId} />
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
-          <ToolDock roomId={roomId} />
+          <ToolDock
+            roomId={roomId}
+            tagsOpen={tagsOpen}
+            onTagsToggle={() => setTagsOpen(v => !v)}
+          />
         </div>
       </div>
 
@@ -88,7 +98,6 @@ function RoomInner({ roomId }: { roomId: string }) {
       <ContestedNodeOverlay roomId={roomId} />
       <CursorPresence roomId={roomId} />
       <AIStatusPill />
-      <NodeLockButton roomId={roomId} />
 
       <Toaster
         position="top-center"

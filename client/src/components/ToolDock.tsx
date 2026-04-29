@@ -1,17 +1,29 @@
 // client/src/components/ToolDock.tsx
 import { useEffect, useState } from 'react'
+import { useValue } from 'tldraw'
+import type { TLShapeId } from 'tldraw'
 import { Dock } from './ui/Dock'
 import { useEditor } from '../context/CanvasContext'
 import { wsClient } from '../lib/wsClient'
 import { useMyRole } from '../hooks/useMyRole'
-import { MousePointer2, Square, Type, Minus, ArrowRight, Eraser, Undo2, Redo2, Home } from 'lucide-react'
+import { MousePointer2, Square, Type, Minus, ArrowRight, Eraser, Undo2, Redo2, Home, Lock, Unlock, Tag } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-export function ToolDock({ roomId }: { roomId: string }) {
+interface Props {
+  roomId: string
+  tagsOpen: boolean
+  onTagsToggle: () => void
+}
+
+export function ToolDock({ roomId, tagsOpen, onTagsToggle }: Props) {
   const editor = useEditor()
   const navigate = useNavigate()
   const { role } = useMyRole(roomId)
   const [aiActive, setAiActive] = useState(false)
+  const [lockedNodes, setLockedNodes] = useState<Set<string>>(new Set())
+
+  const selectedIds = useValue('selectedIds', () => editor?.getSelectedShapeIds() ?? [], [editor])
+  const selectedNode = selectedIds.length >= 1 ? selectedIds[0] as TLShapeId : null
 
   useEffect(() => {
     return wsClient.on((msg) => {
@@ -19,8 +31,24 @@ export function ToolDock({ roomId }: { roomId: string }) {
         setAiActive(true)
         setTimeout(() => setAiActive(false), 2200)
       }
+      if (msg.type === 'node:decision_locked') {
+        setLockedNodes(prev => new Set(prev).add(msg.payload.nodeId))
+      }
+      if (msg.type === 'node:unlocked') {
+        setLockedNodes(prev => { const n = new Set(prev); n.delete(msg.payload.nodeId); return n })
+      }
     })
   }, [])
+
+  const isLocked = selectedNode ? lockedNodes.has(selectedNode) : false
+
+  const toggleLock = () => {
+    if (!selectedNode) return
+    wsClient.send(isLocked
+      ? { type: 'node:unlock', payload: { roomId, nodeId: selectedNode } }
+      : { type: 'decision:lock', payload: { roomId, nodeId: selectedNode } }
+    )
+  }
 
   const editItems = role === 'viewer' ? [] : [
     { icon: <MousePointer2 size={17} />, label: 'Select', onClick: () => editor?.setCurrentTool('select') },
@@ -33,9 +61,25 @@ export function ToolDock({ roomId }: { roomId: string }) {
     { icon: <Redo2 size={17} />, label: 'Redo', onClick: () => editor?.redo() },
   ]
 
+  const selectionItems = selectedNode ? [
+    ...(role === 'lead' ? [{
+      icon: isLocked
+        ? <Lock size={17} color="#ef4444" />
+        : <Unlock size={17} color="#84A98C" />,
+      label: isLocked ? 'Unlock Node' : 'Lock Node',
+      onClick: toggleLock,
+    }] : []),
+    {
+      icon: <Tag size={17} color={tagsOpen ? '#84A98C' : 'currentColor'} />,
+      label: 'Tags',
+      onClick: onTagsToggle,
+    },
+  ] : []
+
   const items = [
     { icon: <Home size={17} />, label: 'Home', onClick: () => navigate('/') },
     ...editItems,
+    ...selectionItems,
   ]
 
   return (

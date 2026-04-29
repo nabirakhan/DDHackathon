@@ -3,12 +3,14 @@ import { useValue } from 'tldraw'
 import { useEditor } from '../context/CanvasContext'
 
 interface Props {
+  open: boolean
+  onClose: () => void
   tags: Map<string, string[]>
   addTag: (nodeId: string, tag: string) => Promise<void>
   removeTag: (nodeId: string, tag: string) => Promise<void>
 }
 
-export function TagsPanel({ tags, addTag, removeTag }: Props) {
+export function TagsPanel({ open, onClose, tags, addTag, removeTag }: Props) {
   const editor = useEditor()
   const [input, setInput] = useState('')
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
@@ -17,27 +19,34 @@ export function TagsPanel({ tags, addTag, removeTag }: Props) {
   const selectedIds = useValue('selectedIds', () => editor?.getSelectedShapeIds() ?? [], [editor])
   const nodeId = selectedIds.length === 1 ? selectedIds[0] : null
 
+  // Close when deselected
   useEffect(() => {
-    if (!editor || !nodeId) { setPos(null); return }
+    if (!nodeId) onClose()
+  }, [nodeId])
+
+  useEffect(() => {
+    if (!editor || !nodeId || !open) { setPos(null); return }
     const bounds = editor.getShapePageBounds(nodeId)
     if (!bounds) { setPos(null); return }
     const screen = editor.pageToScreen({ x: bounds.midX, y: bounds.maxY })
     setPos(screen)
     setInput('')
-  }, [editor, nodeId])
+    setTimeout(() => inputRef.current?.focus(), 50)
+  }, [editor, nodeId, open])
 
-  if (!nodeId || !pos) return null
+  if (!open || !nodeId || !pos) return null
 
   const nodeTags = tags.get(nodeId) ?? []
 
   const handleAdd = () => {
     const clean = input.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '')
-    if (!clean || clean.length > 20 || nodeTags.includes(clean)) return
+    if (!clean || clean.length > 20 || nodeTags.includes(clean)) { setInput(''); return }
     addTag(nodeId, clean)
     setInput('')
     inputRef.current?.focus()
   }
 
+  // Position relative to <main> (position:relative parent)
   return (
     <div
       style={{
@@ -97,7 +106,7 @@ export function TagsPanel({ tags, addTag, removeTag }: Props) {
           ref={inputRef}
           value={input}
           onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') handleAdd() }}
+          onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') onClose() }}
           placeholder="add tag…"
           maxLength={20}
           style={{
