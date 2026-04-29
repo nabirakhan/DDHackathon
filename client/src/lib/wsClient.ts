@@ -154,14 +154,22 @@ export const wsClient = {
 }
 
 // Handle auth state changes
+let signedOutTimer: ReturnType<typeof setTimeout> | null = null
 supabase.auth.onAuthStateChange((event, session) => {
   console.log('[ws] Auth state change:', event)
+
   if (event === 'TOKEN_REFRESHED' && session) {
     isRefreshing = true
     wsClient.send({ type: 'auth:refresh', payload: { token: session.access_token } })
   }
-  
+
+  if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+    // Cancel any pending disconnect — anonymous auth fires SIGNED_OUT then SIGNED_IN during init
+    if (signedOutTimer) { clearTimeout(signedOutTimer); signedOutTimer = null }
+  }
+
   if (event === 'SIGNED_OUT') {
-    wsClient.disconnect()
+    // Debounce: only disconnect if not immediately followed by SIGNED_IN
+    signedOutTimer = setTimeout(() => { signedOutTimer = null; wsClient.disconnect() }, 500)
   }
 })
