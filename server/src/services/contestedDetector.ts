@@ -33,7 +33,10 @@ export async function recordEdit(
 }
 
 async function checkContest(roomId: string, nodeId: string, editWindows: Map<string, EditEntry[]>) {
-  const edits = editWindows.get(nodeId) ?? []
+  // Only consider edits in the last 90s — prevents stale anonymous-session data
+  // from a previous browser session being treated as a second "user"
+  const cutoff = Date.now() - 90000
+  const edits = (editWindows.get(nodeId) ?? []).filter(e => e.timestamp > cutoff)
   if (edits.length === 0) return
 
   // Build per-user edit count + latest text

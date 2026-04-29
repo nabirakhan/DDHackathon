@@ -1,6 +1,7 @@
 // client/src/components/ContestedNodeOverlay.tsx
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { toast } from 'sonner'
 import { wsClient } from '../lib/wsClient'
 import { Swords } from 'lucide-react'
 import { useMyRole } from '../hooks/useMyRole'
@@ -20,6 +21,7 @@ export function ContestedNodeOverlay({ roomId }: { roomId: string }) {
         setContests(m => new Map(m).set(msg.payload.nodeId, msg.payload))
       }
       if (msg.type === 'node:decision_locked') {
+        toast.success(`Decision locked on #${msg.payload.nodeId.slice(-6)}`, { duration: 4000 })
         setContests(m => { const n = new Map(m); n.delete(msg.payload.nodeId); return n })
       }
     })
