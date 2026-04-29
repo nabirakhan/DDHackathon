@@ -17,16 +17,19 @@ export function ConnectionBanner() {
   }, [status, editor])
 
   useEffect(() => {
+    let lastToastAt = 0
     return wsClient.on((msg) => {
       if (msg.type === 'error:permission_denied' && msg.payload.code === 'ROOM_MISMATCH') {
         toast.error('Session out of sync, reloading...')
         setTimeout(() => window.location.reload(), 1000)
         return
       }
-      if (msg.type === 'error:permission_denied') {
-        toast.error(`Permission denied: ${msg.payload.code}`)
-      }
+      // NODE_LOCKED and INSUFFICIENT_ROLE are handled with friendly messages in useYjsBinding — skip here
+      if (msg.type === 'error:permission_denied') return
       if (msg.type === 'error:malformed_update') {
+        const now = Date.now()
+        if (now - lastToastAt < 5000) return
+        lastToastAt = now
         toast.error('Sync error — resyncing...')
         setTimeout(() => window.location.reload(), 500)
       }

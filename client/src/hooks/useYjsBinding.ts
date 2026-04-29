@@ -6,6 +6,7 @@ import { useCanvas } from '../context/CanvasContext'
 import { wsClient } from '../lib/wsClient'
 
 interface PendingMeta { nodeId: string; textSnapshot?: string }
+const permToastAt: Record<string, number> = {}
 
 function extractRichText(node: unknown): string {
   if (!node || typeof node !== 'object') return ''
@@ -173,6 +174,10 @@ export function useYjsBinding(roomId: string) {
 
       if (msg.type === 'error:permission_denied') {
         const code = msg.payload.code
+        const key = `perm:${code}`
+        const last = (permToastAt[key] ?? 0)
+        if (Date.now() - last < 3000) return
+        permToastAt[key] = Date.now()
         if (code === 'INSUFFICIENT_ROLE') {
           toast.error('You need contributor access to edit. Ask the lead to promote you.')
         } else if (code === 'NODE_LOCKED') {

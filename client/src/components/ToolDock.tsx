@@ -27,7 +27,7 @@ export function ToolDock({ roomId, tagsOpen, onTagsToggle }: Props) {
 
   useEffect(() => {
     return wsClient.on((msg) => {
-      if (msg.type === 'mutation:broadcast') {
+      if (msg.type === 'mutation:broadcast' && (msg.payload as any).textSnapshot) {
         setAiActive(true)
         setTimeout(() => setAiActive(false), 2200)
       }
@@ -99,7 +99,7 @@ export function AIStatusPill() {
 
   useEffect(() => {
     return wsClient.on((msg) => {
-      if (msg.type === 'mutation:broadcast') {
+      if (msg.type === 'mutation:broadcast' && (msg.payload as any).textSnapshot) {
         setActive(true)
         setTimeout(() => setActive(false), 2200)
       }

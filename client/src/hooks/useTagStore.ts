@@ -10,10 +10,9 @@ export function useTagStore(roomId: string) {
 
   useEffect(() => {
     let cancelled = false
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session || cancelled) return
+    const loadTags = (token: string) => {
       fetch(`${SERVER_URL}/rooms/${roomId}/tags`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { Authorization: `Bearer ${token}` },
       })
         .then(r => r.json())
         .then(json => {
@@ -25,8 +24,14 @@ export function useTagStore(roomId: string) {
           setTags(map)
         })
         .catch(() => {})
+    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session && !cancelled) loadTags(session.access_token)
     })
-    return () => { cancelled = true }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session && !cancelled) loadTags(session.access_token)
+    })
+    return () => { cancelled = true; subscription.unsubscribe() }
   }, [roomId])
 
   useEffect(() => {

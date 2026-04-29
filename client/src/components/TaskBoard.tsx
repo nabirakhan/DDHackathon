@@ -49,16 +49,21 @@ export function TaskBoard({ roomId }: { roomId: string }) {
   // Fetch existing tasks on mount
   useEffect(() => {
     let cancelled = false
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session || cancelled) return
+    const loadTasks = (token: string) => {
       fetch(`${SERVER_URL}/rooms/${roomId}/tasks`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { Authorization: `Bearer ${token}` },
       })
         .then(r => r.json())
         .then(json => { if (!cancelled) setTasks(json.tasks ?? []) })
         .catch(() => {})
+    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session && !cancelled) loadTasks(session.access_token)
     })
-    return () => { cancelled = true }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session && !cancelled) loadTasks(session.access_token)
+    })
+    return () => { cancelled = true; subscription.unsubscribe() }
   }, [roomId])
 
   // Realtime updates
