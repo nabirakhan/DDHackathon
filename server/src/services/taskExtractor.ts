@@ -11,16 +11,23 @@ function getProp(obj: unknown, key: string): unknown {
   return (obj as any)[key]
 }
 
+function extractTipTapText(node: any): string {
+  if (!node) return ''
+  if (node.type === 'text' && typeof node.text === 'string') return node.text
+  if (Array.isArray(node.content)) return node.content.map(extractTipTapText).join('')
+  return ''
+}
+
 function extractShapeText(shape: unknown): string | undefined {
   if (!shape) return undefined
   const props = getProp(shape, 'props')
   if (!props) return undefined
   const text = getProp(props, 'text')
   if (typeof text === 'string' && text.trim().length > 0) return text.trim()
-  // richText fallback (tldraw note shapes)
+  // richText fallback (tldraw note shapes use TipTap/ProseMirror AST)
   const richText = getProp(props, 'richText') as any
   if (richText) {
-    const flat = JSON.stringify(richText).replace(/"text":"([^"]*)"/g, '$1').replace(/[^a-zA-Z0-9 .,!?']/g, ' ').trim()
+    const flat = extractTipTapText(richText).trim()
     if (flat.length > 0) return flat
   }
   return undefined

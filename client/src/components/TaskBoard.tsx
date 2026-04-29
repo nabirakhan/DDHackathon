@@ -33,15 +33,11 @@ const intentBorderColor: Record<string, string> = {
   reference:     'rgba(167,139,250,0.5)',
 }
 
-// Strip TipTap/ProseMirror schema artifacts from richText extraction
+// Strip TipTap/ProseMirror schema artifacts (e.g. "type doc , content type paragraph , attrs dir auto , content type text ,")
 function cleanText(raw: string): string {
-  const marker = 'content type text '
-  const idx = raw.lastIndexOf(marker)
-  if (idx !== -1) {
-    const after = raw.slice(idx + marker.length).replace(/^[,\s]+/, '').trim()
-    if (after.length > 2) return after
-  }
-  return raw.trim()
+  // Remove leading metadata tokens like "type word ," and "attrs word word ,"
+  const cleaned = raw.replace(/^(\s*(type|content|attrs)\s+[\w]+(\s+[\w]+)?\s*,\s*)+/i, '').trim()
+  return cleaned.length > 1 ? cleaned : raw.trim()
 }
 
 export function TaskBoard({ roomId }: { roomId: string }) {
