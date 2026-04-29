@@ -33,6 +33,17 @@ const intentBorderColor: Record<string, string> = {
   reference:     'rgba(167,139,250,0.5)',
 }
 
+// Strip TipTap/ProseMirror schema artifacts from richText extraction
+function cleanText(raw: string): string {
+  const marker = 'content type text '
+  const idx = raw.lastIndexOf(marker)
+  if (idx !== -1) {
+    const after = raw.slice(idx + marker.length).replace(/^[,\s]+/, '').trim()
+    if (after.length > 2) return after
+  }
+  return raw.trim()
+}
+
 export function TaskBoard({ roomId }: { roomId: string }) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [collapsed, setCollapsed] = useState(false)
@@ -105,7 +116,7 @@ export function TaskBoard({ roomId }: { roomId: string }) {
         }}
       >
         <span style={{ fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 800, color: '#84A98C', letterSpacing: '2.5px', textTransform: 'uppercase' }}>
-          Pipeline
+          Tasks Log
         </span>
         {openTasks.length > 0 && (
           <span style={{ padding: '1px 6px', borderRadius: '999px', background: 'rgba(132,169,140,0.15)', border: '1px solid rgba(132,169,140,0.25)', fontFamily: 'Inter, sans-serif', fontSize: '9px', fontWeight: 600, color: '#84A98C' }}>
@@ -174,7 +185,7 @@ export function TaskBoard({ roomId }: { roomId: string }) {
                           </span>
                         </div>
                         <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 500, color: '#CAD2C5', lineHeight: 1.5 }}>
-                          {t.text}
+                          {cleanText(t.text)}
                         </div>
                         <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', color: 'rgba(202,210,197,0.3)', marginTop: '4px' }}>
                           {new Date(t.created_at).toLocaleTimeString()}
@@ -211,7 +222,7 @@ export function TaskBoard({ roomId }: { roomId: string }) {
                       >
                         <CheckCircle2 size={14} style={{ flexShrink: 0, marginTop: '2px', color: '#84A98C' }} />
                         <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', color: 'rgba(202,210,197,0.5)', textDecoration: 'line-through', lineHeight: 1.4 }}>
-                          {t.text}
+                          {cleanText(t.text)}
                         </div>
                       </motion.div>
                     ))}

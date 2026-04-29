@@ -6,7 +6,7 @@ import { wsClient } from '../lib/wsClient'
 import { supabase } from '../lib/supabase'
 import { getDisplayName, useAuth } from '../hooks/useAuth'
 import { useMyRole } from '../hooks/useMyRole'
-import { Wifi, WifiOff, RefreshCw, Clock, CheckSquare, Zap, Users, X } from 'lucide-react'
+import { Wifi, WifiOff, RefreshCw, Clock, CheckSquare, Zap, Users, X, Copy, Check } from 'lucide-react'
 import type { UserRole } from '@shared/types'
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL as string
@@ -208,6 +208,14 @@ function MembersPanel({ roomId, myRole, myUserId, onClose }: {
 export function TopBar({ roomId }: { roomId: string }) {
   const { sessionStartedAt, decisionCount } = useRoomJoinedState()
   const [now, setNow] = useState(Date.now())
+  const [copied, setCopied] = useState(false)
+
+  const copyRoomId = () => {
+    navigator.clipboard.writeText(roomId).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
   const [actionItems, setActionItems] = useState(0)
   const [peerCount, setPeerCount] = useState(0)
   const [showMembers, setShowMembers] = useState(false)
@@ -253,6 +261,15 @@ export function TopBar({ roomId }: { roomId: string }) {
         <span style={{ fontFamily: 'Syne, sans-serif', fontSize: '15px', fontWeight: 800, color: '#CAD2C5', letterSpacing: '-0.5px', marginRight: '4px' }}>
           LIGMA
         </span>
+
+        <button
+          onClick={copyRoomId}
+          title="Copy room ID"
+          style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(132,169,140,0.08)', border: '1px solid rgba(132,169,140,0.2)', borderRadius: '6px', padding: '2px 7px', cursor: 'pointer', color: copied ? '#84A98C' : 'rgba(202,210,197,0.4)', transition: 'color 0.15s' }}
+        >
+          {copied ? <Check size={9} /> : <Copy size={9} />}
+          <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px' }}>{copied ? 'copied' : roomId.slice(0, 8)}</span>
+        </button>
 
         <div style={{ width: '1px', height: '14px', background: 'rgba(202,210,197,0.15)' }} />
 

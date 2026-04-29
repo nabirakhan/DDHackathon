@@ -10,6 +10,7 @@ interface EventRow {
   event_type: string
   node_id: string | null
   timestamp: string
+  text?: string
 }
 
 const typeColor: Record<string, string> = {
@@ -51,6 +52,7 @@ export function EventLog({ roomId }: { roomId: string }) {
           if (cancelled) return
           setEvents((json.events ?? []).map((e: any) => ({
             id: e.id, event_type: e.event_type, node_id: e.node_id, timestamp: e.timestamp,
+            text: e.payload?.textSnapshot ?? e.payload?.finalText ?? undefined,
           })))
         })
         .catch(() => {})
@@ -72,9 +74,13 @@ export function EventLog({ roomId }: { roomId: string }) {
         const { eventType, nodeId } = msg.payload
         const dedupKey = `${eventType}:${nodeId}`
         const last = recentUpdates.get(dedupKey) ?? 0
-        if (Date.now() - last < 5000) return   // 1 event per type+node per 5s
+        if (Date.now() - last < 5000) return
         recentUpdates.set(dedupKey, Date.now())
-        add(eventType, nodeId)
+        const text = (msg.payload as any).textSnapshot ?? undefined
+        setEvents(prev => [
+          { id: Date.now() + Math.random(), event_type: eventType, node_id: nodeId, timestamp: new Date().toISOString(), text },
+          ...prev,
+        ].slice(0, 100))
       }
       if (msg.type === 'node:decision_locked') add('decision:locked', msg.payload.nodeId)
       if (msg.type === 'task:created') add('task:created', msg.payload.task.source_node_id)
@@ -100,7 +106,7 @@ export function EventLog({ roomId }: { roomId: string }) {
       >
         <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#84A98C', display: 'inline-block' }} />
         <span style={{ fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 800, color: '#84A98C', letterSpacing: '2.5px', textTransform: 'uppercase' }}>
-          Intelligence
+          Event Log
         </span>
         {events.length > 0 && (
           <span style={{ padding: '1px 6px', borderRadius: '999px', background: 'rgba(132,169,140,0.15)', border: '1px solid rgba(132,169,140,0.25)', fontFamily: 'Inter, sans-serif', fontSize: '9px', fontWeight: 600, color: '#84A98C' }}>
@@ -136,6 +142,11 @@ export function EventLog({ roomId }: { roomId: string }) {
                         <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', color: 'rgba(202,210,197,0.3)' }}>#{e.node_id.slice(-6)}</span>
                       )}
                     </div>
+                    {e.text && (
+                      <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '10px', color: 'rgba(202,210,197,0.5)', marginTop: '2px', paddingLeft: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {e.text.slice(0, 48)}
+                      </div>
+                    )}
                     <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', color: 'rgba(202,210,197,0.25)', marginTop: '2px', paddingLeft: '10px' }}>
                       {new Date(e.timestamp).toLocaleTimeString()}
                     </div>
