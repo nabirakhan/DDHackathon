@@ -111,7 +111,7 @@ export type TaskCreatedMessage = {
 }
 export type TaskUpdatedMessage = {
   type: 'task:updated'
-  payload: { taskId: string; status: string }
+  payload: { taskId: string; status: string; text?: string; intent?: string }
 }
 export type AuthRefreshedMessage = { type: 'auth:refreshed' }
 export type ErrorPermissionDeniedMessage = {

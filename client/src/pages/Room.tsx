@@ -16,6 +16,10 @@ import { NodeLockButton } from '../components/NodeLockButton'
 import { wsClient } from '../lib/wsClient'
 import { SoftAurora } from '../components/ui/SoftAurora'
 import { getDisplayName } from '../hooks/useAuth'
+import { supabase } from '../lib/supabase'
+import type { TLShapeId } from 'tldraw'
+
+const SERVER_URL = import.meta.env.VITE_SERVER_URL as string
 
 function RoomInner({ roomId }: { roomId: string }) {
   useYjsBinding(roomId)
@@ -30,8 +34,40 @@ function RoomInner({ roomId }: { roomId: string }) {
     if (!editor || !role) return
     const isReadOnly = role === 'viewer'
     editor.updateInstanceState({ isReadonly: isReadOnly })
-    console.log(`[room] Role: ${role}, readOnly: ${isReadOnly}`)
   }, [editor, role])
+
+  // Fetch locked nodes from DB and apply isLocked to tldraw shapes
+  useEffect(() => {
+    if (!editor) return
+    let cancelled = false
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session || cancelled) return
+      fetch(`${SERVER_URL}/rooms/${roomId}/locked-nodes`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+        .then(r => r.json())
+        .then(({ lockedNodes }: { lockedNodes: string[] }) => {
+          if (cancelled || !lockedNodes?.length) return
+          for (const nodeId of lockedNodes) {
+            const shape = editor.getShape(nodeId as TLShapeId)
+            if (shape) editor.updateShapes([{ id: nodeId as TLShapeId, type: shape.type, isLocked: true }])
+          }
+        })
+        .catch(() => {})
+    })
+    return () => { cancelled = true }
+  }, [editor, roomId])
+
+  // Lock shape immediately when decision is locked via WS
+  useEffect(() => {
+    return wsClient.on((msg) => {
+      if (msg.type === 'node:decision_locked' && editor) {
+        const shapeId = msg.payload.nodeId as TLShapeId
+        const shape = editor.getShape(shapeId)
+        if (shape) editor.updateShapes([{ id: shapeId, type: shape.type, isLocked: true }])
+      }
+    })
+  }, [editor])
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#141f1f' }}>

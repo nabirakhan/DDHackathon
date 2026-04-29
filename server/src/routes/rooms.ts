@@ -132,6 +132,14 @@ router.put('/:id/members/:userId/role', requireAuth, async (req: any, res: any) 
   res.json({ ok: true })
 })
 
+router.get('/:id/tasks', requireAuth, async (req: any, res: any) => {
+  const role = await getMembership(req.userId, req.params.id)
+  if (!role) return res.status(403).json({ error: 'Not a member' })
+  const { data } = await db.from('tasks')
+    .select('*').eq('room_id', req.params.id).order('created_at', { ascending: false })
+  res.json({ tasks: data ?? [] })
+})
+
 router.patch('/:id/tasks/:taskId', requireAuth, async (req: any, res: any) => {
   const { id: roomId, taskId } = req.params
   const { status } = req.body
@@ -142,6 +150,14 @@ router.patch('/:id/tasks/:taskId', requireAuth, async (req: any, res: any) => {
   if (error) return res.status(500).json({ error: 'Internal server error' })
   broadcastToRoom(roomId, { type: 'task:updated', payload: { taskId, status } })
   res.json({ ok: true })
+})
+
+router.get('/:id/locked-nodes', requireAuth, async (req: any, res: any) => {
+  const role = await getMembership(req.userId, req.params.id)
+  if (!role) return res.status(403).json({ error: 'Not a member' })
+  const { data } = await db.from('node_acl')
+    .select('node_id').eq('room_id', req.params.id).eq('is_locked', true)
+  res.json({ lockedNodes: (data ?? []).map((r: any) => r.node_id) })
 })
 
 export default router

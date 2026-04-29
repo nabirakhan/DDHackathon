@@ -13,28 +13,32 @@ interface EventRow {
 }
 
 const typeColor: Record<string, string> = {
-  'node:created': '#84A98C',
-  'node:updated': '#52796F',
-  'node:deleted': '#ef4444',
-  'decision:locked': '#fbbf24',
-  'task:created': '#CAD2C5',
+  'node:created':      '#84A98C',
+  'node:updated':      '#52796F',
+  'node:deleted':      '#ef4444',
+  'decision:locked':   '#fbbf24',
+  'task:created':      '#CAD2C5',
   'permission_denied': '#f97316',
 }
 
 const typeLabel: Record<string, string> = {
-  'node:created': 'create',
-  'node:updated': 'edit',
-  'node:deleted': 'delete',
-  'decision:locked': 'locked',
-  'task:created': 'task',
+  'node:created':      'create',
+  'node:updated':      'edit',
+  'node:deleted':      'delete',
+  'decision:locked':   'locked',
+  'task:created':      'task',
   'permission_denied': 'denied',
 }
+
+// Per-node dedup: only log one node:updated per 5s per nodeId
+const recentUpdates = new Map<string, number>()
 
 export function EventLog({ roomId }: { roomId: string }) {
   const [events, setEvents] = useState<EventRow[]>([])
   const [collapsed, setCollapsed] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
 
+  // Load historical events on mount
   useEffect(() => {
     let cancelled = false
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -45,57 +49,47 @@ export function EventLog({ roomId }: { roomId: string }) {
         .then(r => r.json())
         .then(json => {
           if (cancelled) return
-          const rows: EventRow[] = (json.events ?? []).map((e: any) => ({
-            id: e.id,
-            event_type: e.event_type,
-            node_id: e.node_id,
-            timestamp: e.timestamp,
-          }))
-          setEvents(rows)
+          setEvents((json.events ?? []).map((e: any) => ({
+            id: e.id, event_type: e.event_type, node_id: e.node_id, timestamp: e.timestamp,
+          })))
         })
         .catch(() => {})
     })
     return () => { cancelled = true }
   }, [roomId])
 
+  // Realtime events with dedup
   useEffect(() => {
     return wsClient.on((msg) => {
+      const add = (type: string, nodeId: string | null) => {
+        setEvents(prev => [
+          { id: Date.now() + Math.random(), event_type: type, node_id: nodeId, timestamp: new Date().toISOString() },
+          ...prev,
+        ].slice(0, 100))
+      }
+
       if (msg.type === 'mutation:broadcast' && msg.payload.eventType) {
-        const eventType = msg.payload.eventType
-        const nodeId = msg.payload.nodeId
-        setEvents((prev: EventRow[]) => [
-          { id: Date.now() + Math.random(), event_type: eventType, node_id: nodeId, timestamp: new Date().toISOString() },
-          ...prev,
-        ].slice(0, 100))
+        const { eventType, nodeId } = msg.payload
+        if (eventType === 'node:updated') {
+          const last = recentUpdates.get(nodeId) ?? 0
+          if (Date.now() - last < 5000) return   // collapse rapid edits to 1 per 5s per node
+          recentUpdates.set(nodeId, Date.now())
+        }
+        add(eventType, nodeId)
       }
-      if (msg.type === 'node:decision_locked') {
-        setEvents((prev: EventRow[]) => [
-          { id: Date.now() + Math.random(), event_type: 'decision:locked', node_id: msg.payload.nodeId, timestamp: new Date().toISOString() },
-          ...prev,
-        ].slice(0, 100))
-      }
-      if (msg.type === 'task:created') {
-        setEvents((prev: EventRow[]) => [
-          { id: Date.now() + Math.random(), event_type: 'task:created', node_id: msg.payload.task.source_node_id, timestamp: new Date().toISOString() },
-          ...prev,
-        ].slice(0, 100))
-      }
+      if (msg.type === 'node:decision_locked') add('decision:locked', msg.payload.nodeId)
+      if (msg.type === 'task:created') add('task:created', msg.payload.task.source_node_id)
     })
   }, [])
 
   return (
     <div style={{
-      width: '264px',
-      flexShrink: 0,
-      display: 'flex',
-      flexDirection: 'column',
+      width: '264px', flexShrink: 0, display: 'flex', flexDirection: 'column',
       background: 'rgba(47, 62, 70, 0.65)',
       backdropFilter: 'blur(40px) saturate(150%)',
       WebkitBackdropFilter: 'blur(40px) saturate(150%)',
       border: '1px solid rgba(202, 210, 197, 0.08)',
-      borderRadius: '2rem',
-      boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
-      overflow: 'hidden',
+      borderRadius: '2rem', boxShadow: '0 24px 64px rgba(0,0,0,0.4)', overflow: 'hidden',
     }}>
       <button
         onClick={() => setCollapsed(v => !v)}
@@ -105,7 +99,7 @@ export function EventLog({ roomId }: { roomId: string }) {
           borderBottom: '1px solid rgba(202,210,197,0.06)', flexShrink: 0,
         }}
       >
-        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#84A98C', display: 'inline-block', animation: 'spin-slow 4s linear infinite' }} />
+        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#84A98C', display: 'inline-block' }} />
         <span style={{ fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 800, color: '#84A98C', letterSpacing: '2.5px', textTransform: 'uppercase' }}>
           Intelligence
         </span>
@@ -125,12 +119,11 @@ export function EventLog({ roomId }: { roomId: string }) {
             </div>
           ) : (
             <AnimatePresence initial={false}>
-              {events.map((e: EventRow) => {
+              {events.map(e => {
                 const color = typeColor[e.event_type] ?? '#84A98C'
                 const label = typeLabel[e.event_type] ?? e.event_type
                 return (
-                  <motion.div
-                    key={e.id}
+                  <motion.div key={e.id}
                     initial={{ opacity: 0, x: -8, height: 0 }}
                     animate={{ opacity: 1, x: 0, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
@@ -139,13 +132,9 @@ export function EventLog({ roomId }: { roomId: string }) {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: color, flexShrink: 0 }} />
-                      <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', fontWeight: 600, color }}>
-                        {label}
-                      </span>
+                      <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', fontWeight: 600, color }}>{label}</span>
                       {e.node_id && (
-                        <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', color: 'rgba(202,210,197,0.3)' }}>
-                          #{e.node_id.slice(-6)}
-                        </span>
+                        <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', color: 'rgba(202,210,197,0.3)' }}>#{e.node_id.slice(-6)}</span>
                       )}
                     </div>
                     <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', color: 'rgba(202,210,197,0.25)', marginTop: '2px', paddingLeft: '10px' }}>

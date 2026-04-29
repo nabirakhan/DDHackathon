@@ -1,12 +1,10 @@
-// server/src/services/contestedDetector.ts
 import { db } from '../db/supabase.js'
 import { broadcastToRoom } from '../ws/hub.js'
 
 interface EditEntry { userId: string; timestamp: number; text: string }
 
-// Track last broadcast per node to prevent spam
-const lastBroadcast = new Map<string, number>()
-const DEBOUNCE_MS = 10000 // 10 seconds debounce
+// Per-node quiet-period timers — reset on every edit, fires 60s after last edit
+const nodeTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 export async function recordEdit(
   roomId: string,
@@ -15,126 +13,66 @@ export async function recordEdit(
   text: string,
   editWindows: Map<string, EditEntry[]>
 ) {
-  // Ignore empty or very short text
-  if (!text || text.length < 3) return
+  if (!text || text.trim().length < 3) return
 
   const now = Date.now()
   const window = editWindows.get(nodeId) ?? []
-  
-  // Add current edit
-  window.push({ userId, timestamp: now, text })
-  
-  // Keep last 60 seconds of edits (increased from 30s)
-  const sixtySecondsAgo = now - 60000
-  const trimmed = window.filter(e => e.timestamp > sixtySecondsAgo)
-  editWindows.set(nodeId, trimmed)
+  window.push({ userId, timestamp: now, text: text.trim() })
+  // Keep 3 minutes of history so the 60s timer can look back far enough
+  editWindows.set(nodeId, window.filter(e => e.timestamp > now - 180000))
 
-  // Count edits per user
-  const editsByUser = new Map<string, { count: number; lastText: string }>()
-  for (const edit of trimmed) {
-    const existing = editsByUser.get(edit.userId)
-    if (existing) {
-      existing.count++
-      existing.lastText = edit.text
-    } else {
-      editsByUser.set(edit.userId, { count: 1, lastText: edit.text })
-    }
+  // Reset quiet-period timer — wait 60s of silence before evaluating
+  const key = `${roomId}:${nodeId}`
+  const existing = nodeTimers.get(key)
+  if (existing) clearTimeout(existing)
+
+  nodeTimers.set(key, setTimeout(() => {
+    nodeTimers.delete(key)
+    void checkContest(roomId, nodeId, editWindows)
+  }, 60000))
+}
+
+async function checkContest(roomId: string, nodeId: string, editWindows: Map<string, EditEntry[]>) {
+  const edits = editWindows.get(nodeId) ?? []
+  if (edits.length === 0) return
+
+  // Build per-user edit count + latest text
+  const byUser = new Map<string, { count: number; lastText: string }>()
+  for (const edit of edits) {
+    const u = byUser.get(edit.userId)
+    if (u) { u.count++; u.lastText = edit.text }
+    else byUser.set(edit.userId, { count: 1, lastText: edit.text })
   }
-  
-  const distinctUsers = Array.from(editsByUser.keys())
-  const userEditSummary = Array.from(editsByUser.entries())
-    .map(([uid, data]) => `${uid.slice(0,6)}:${data.count}`)
-    .join(', ')
-  
-  console.log(`[contest] node=${nodeId.slice(-6)} users=${distinctUsers.length} (${userEditSummary}) edits=${trimmed.length}`)
-  
-  // REQUIREMENTS FOR CONTEST:
-  // 1. At least 2 different users
-  if (distinctUsers.length < 2) {
-    console.log(`[contest] Only 1 user - no contest`)
-    return
-  }
-  
-  // 2. Each user must have at least 2 edits (shows back-and-forth)
-  const hasMultipleEditsPerUser = Array.from(editsByUser.values()).every(data => data.count >= 2)
-  if (!hasMultipleEditsPerUser) {
-    console.log(`[contest] Not enough edits per user - need each user to edit at least twice`)
-    return
-  }
-  
-  // 3. Get the LATEST version from each user (what they're currently trying to say)
-  const latestVersions: Record<string, string> = {}
-  for (const edit of [...trimmed].reverse()) {
-    if (!latestVersions[edit.userId]) {
-      latestVersions[edit.userId] = edit.text
-    }
-  }
-  
-  // 4. Check if versions are actually different
-  const texts = Object.values(latestVersions)
-  const allSame = texts.every(t => t === texts[0])
-  if (allSame) {
-    console.log(`[contest] All users have same text - no contest`)
-    return
-  }
-  
-  // 5. Check debounce - don't broadcast if we just broadcasted for this node
-  const lastTime = lastBroadcast.get(`${roomId}:${nodeId}`)
-  if (lastTime && (now - lastTime) < DEBOUNCE_MS) {
-    console.log(`[contest] Debounced - last broadcast was ${now - lastTime}ms ago`)
-    return
-  }
-  
-  // Check if there's already an active unresolved contest
+
+  // Require 2+ distinct users, each with 2+ edits
+  if (byUser.size < 2) return
+  if ([...byUser.values()].some(u => u.count < 2)) return
+
+  // Latest texts must actually differ
+  const texts = [...byUser.values()].map(u => u.lastText)
+  if (texts.every(t => t === texts[0])) return
+
+  // Don't re-open if already an active contest
   const { data: existing } = await db.from('contested_nodes')
-    .select('id')
+    .select('detected_at')
     .eq('room_id', roomId)
     .eq('node_id', nodeId)
     .is('resolved_at', null)
     .maybeSingle()
+  if (existing) return
 
-  if (existing) {
-    console.log(`[contest] Already contested - waiting for resolution`)
-    return
-  }
+  const versions: Record<string, string> = {}
+  for (const [uid, u] of byUser) versions[uid] = u.lastText
 
-  console.log(`[contest] 🎯 CONFLICT DETECTED!`, latestVersions)
-  console.log(`[contest] Users: ${distinctUsers.join(', ')}`)
-  console.log(`[contest] Versions:`, JSON.stringify(latestVersions, null, 2))
+  console.log(`[contest] 🎯 CONFLICT node=${nodeId.slice(-6)}`, versions)
 
-  try {
-    const { error } = await db.from('contested_nodes').insert({
-      room_id: roomId,
-      node_id: nodeId,
-      versions: latestVersions,
-      detected_at: new Date().toISOString()
-    })
-    
-    if (error) {
-      console.error('[contest] Insert failed:', error)
-      return
-    }
-    
-    // Record broadcast time for debounce
-    lastBroadcast.set(`${roomId}:${nodeId}`, now)
-    
-    broadcastToRoom(roomId, {
-      type: 'node:contested',
-      payload: { nodeId, versions: latestVersions }
-    })
-    
-    console.log(`[contest] ✅ Broadcasted to room ${roomId}`)
-  } catch (err) {
-    console.error('[contest] Detection error:', err)
-  }
+  const { error } = await db.from('contested_nodes').insert({
+    room_id: roomId,
+    node_id: nodeId,
+    versions,
+  })
+  if (error) { console.error('[contest] Insert failed:', error); return }
+
+  broadcastToRoom(roomId, { type: 'node:contested', payload: { nodeId, versions } })
+  console.log(`[contest] ✅ Broadcasted`)
 }
-
-// Clean up old debounce entries periodically
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, timestamp] of lastBroadcast.entries()) {
-    if (now - timestamp > 60000) { // Remove after 1 minute
-      lastBroadcast.delete(key)
-    }
-  }
-}, 60000)

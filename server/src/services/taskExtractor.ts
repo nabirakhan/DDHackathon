@@ -16,103 +16,73 @@ function extractShapeText(shape: TLShapeLocal | undefined): string | undefined {
   return undefined
 }
 
-function isActionItem(text: string): boolean {
-  const lower = text.toLowerCase()
-  
-  const actionKeywords = ['todo', 'to do', 'task:', 'action:', 'need to', 'must', 'should',
-    'responsible', 'assign', 'deadline', 'fix', 'implement', 'create', 'build', 'make']
-  
-  for (const keyword of actionKeywords) {
-    if (lower.includes(keyword)) {
-      return true
-    }
-  }
-  
-  return false
-}
-
 const pendingTimers = new Map<string, ReturnType<typeof setTimeout>>()
-const lastProcessedText = new Map<string, { text: string; timestamp: number }>()
+const lastProcessed = new Map<string, { text: string; timestamp: number }>()
 
 export function schedule(roomId: string, nodeId: string, userId: string) {
   const key = `${roomId}:${nodeId}`
-  
-  if (pendingTimers.has(key)) {
-    clearTimeout(pendingTimers.get(key)!)
-  }
-  
-  const timer = setTimeout(async () => {
+  if (pendingTimers.has(key)) clearTimeout(pendingTimers.get(key)!)
+
+  pendingTimers.set(key, setTimeout(async () => {
+    pendingTimers.delete(key)
     try {
       const room = getRoom(roomId)
-      if (!room) {
-        pendingTimers.delete(key)
-        return
-      }
-      
-      const yShapes = room.doc.getMap<TLShapeLocal>('shapes')
-      const shape = yShapes.get(nodeId) as TLShapeLocal | undefined
-      const text = extractShapeText(shape)
+      if (!room) return
 
-      if (!text || text.length < 3) {
-        pendingTimers.delete(key)
-        return
+      const text = extractShapeText(room.doc.getMap<TLShapeLocal>('shapes').get(nodeId) as TLShapeLocal | undefined)
+      if (!text || text.length < 3) return
+
+      const last = lastProcessed.get(key)
+      if (last && last.text === text && Date.now() - last.timestamp < 15000) return
+
+      lastProcessed.set(key, { text, timestamp: Date.now() })
+
+      // Classify with AI (falls back to heuristic)
+      const intent = await classify(userId, text)
+
+      // Upsert into classified_nodes (one row per node, updated as text changes)
+      const { data: existingNode } = await db.from('classified_nodes')
+        .select('id')
+        .eq('room_id', roomId)
+        .eq('node_id', nodeId)
+        .maybeSingle()
+
+      if (existingNode) {
+        await db.from('classified_nodes')
+          .update({ text, intent, updated_at: new Date().toISOString() })
+          .eq('id', existingNode.id)
+      } else {
+        await db.from('classified_nodes').insert({
+          room_id: roomId, node_id: nodeId, text, intent, author_id: userId,
+        })
       }
 
-      const last = lastProcessedText.get(nodeId)
-      if (last && last.text === text && Date.now() - last.timestamp < 10000) {
-        pendingTimers.delete(key)
-        return
-      }
-      
-      const isAction = isActionItem(text)
-      
-      if (!isAction) {
-        lastProcessedText.set(nodeId, { text, timestamp: Date.now() })
-        pendingTimers.delete(key)
-        return
-      }
-
+      // Upsert into tasks (all intents tracked, not just action_item)
       const { data: existingTask } = await db.from('tasks')
-        .select('id, text')
+        .select('id, text, intent')
         .eq('source_node_id', nodeId)
         .eq('room_id', roomId)
         .eq('status', 'open')
         .maybeSingle()
 
       if (existingTask) {
-        if (existingTask.text !== text) {
-          await db.from('tasks').update({ text }).eq('id', existingTask.id)
-          broadcastToRoom(roomId, { 
-            type: 'task:updated', 
-            payload: { taskId: existingTask.id, status: 'open' } 
+        if (existingTask.text !== text || existingTask.intent !== intent) {
+          await db.from('tasks').update({ text, intent }).eq('id', existingTask.id)
+          broadcastToRoom(roomId, {
+            type: 'task:updated',
+            payload: { taskId: existingTask.id, status: 'open', text, intent },
           })
         }
       } else {
         const { data: task, error } = await db.from('tasks').insert({
-          room_id: roomId,
-          source_node_id: nodeId,
-          text: text,
-          author_id: userId,
-          status: 'open'
+          room_id: roomId, source_node_id: nodeId, text, intent, author_id: userId, status: 'open',
         }).select().single()
 
-        if (error) {
-          console.error('[task] Insert failed:', error)
-          pendingTimers.delete(key)
-          return
-        }
-
+        if (error) { console.error('[task] Insert failed:', error); return }
         broadcastToRoom(roomId, { type: 'task:created', payload: { task } })
       }
-      
-      lastProcessedText.set(nodeId, { text, timestamp: Date.now() })
-      
     } catch (err) {
       console.error('[task] Error:', err)
-    } finally {
-      pendingTimers.delete(key)
     }
-  }, 3000)
-
-  pendingTimers.set(key, timer)
+  }, 4000))
 }
