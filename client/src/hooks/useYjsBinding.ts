@@ -93,26 +93,28 @@ export function useYjsBinding(roomId: string) {
     }
   }, [store, ydoc, yShapes])
 
-  // Inbound: only apply the shapes that actually changed (keysChanged), not all shapes
+  // FIXED: Inbound observer - properly applies ALL remote changes
   useEffect(() => {
     const observer = (event: Y.YMapEvent<any>) => {
       if (event.transaction.origin === 'local') return
 
       isApplyingRemote.current = true
       try {
-        const editingId = editorRef.current?.getEditingShapeId()
-
-        const removed = Array.from(event.keysChanged)
-          .filter(k => !yShapes.has(k)) as TLShapeId[]
-        if (removed.length && store) store.remove(removed)
-
-        const changed = Array.from(event.keysChanged)
-          .filter(k => yShapes.has(k) && k !== editingId)
-          .map(k => yShapes.get(k)!)
-
-        if (store && changed.length > 0) {
+        // Get ALL keys that changed and exist in yShapes (NO FILTERING)
+        const changedIds = Array.from(event.keysChanged).filter(k => yShapes.has(k)) as TLShapeId[]
+        
+        if (changedIds.length > 0 && store) {
+          const changedShapes = changedIds.map(k => yShapes.get(k)!)
           store.mergeRemoteChanges(() => {
-            store.put(changed as Parameters<typeof store.put>[0])
+            store.put(changedShapes as Parameters<typeof store.put>[0])
+          })
+        }
+        
+        // Handle deletions (keys that no longer exist)
+        const removedIds = Array.from(event.keysChanged).filter(k => !yShapes.has(k)) as TLShapeId[]
+        if (removedIds.length > 0 && store) {
+          store.mergeRemoteChanges(() => {
+            store.remove(removedIds)
           })
         }
       } catch (err) {
@@ -126,10 +128,9 @@ export function useYjsBinding(roomId: string) {
     return () => yShapes.unobserve(observer)
   }, [yShapes, store])
 
-  // FIXED: Inbound WebSocket messages - SYNC pattern (old working version)
+  // Inbound WebSocket messages - SYNC pattern
   useEffect(() => {
     const unsub = wsClient.on((msg) => {
-      // SYNC mutation broadcast - apply immediately
       if (msg.type === 'mutation:broadcast') {
         const bytes = new Uint8Array(msg.payload.yjsUpdate)
         try {
@@ -139,13 +140,10 @@ export function useYjsBinding(roomId: string) {
         }
       }
 
-      // FIXED: room:joined - SYNC application (no async race)
       if (msg.type === 'room:joined') {
-        // Prevent double-apply on reconnection
         if (isJoinedRef.current) return
         isJoinedRef.current = true
         
-        // Apply sync immediately
         const bytes = new Uint8Array(msg.payload.yjsDiff)
         if (bytes.length > 0) {
           try {
@@ -155,7 +153,6 @@ export function useYjsBinding(roomId: string) {
           }
         }
         
-        // Mark room ready AFTER sync update applied
         setRoomReady(true)
         return
       }
