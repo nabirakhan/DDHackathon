@@ -30,7 +30,7 @@ const typeLabel: Record<string, string> = {
   'permission_denied': 'denied',
 }
 
-// Per-node dedup: only log one node:updated per 5s per nodeId
+// Dedup: one event per type+node per 5s (prevents delete/edit storms)
 const recentUpdates = new Map<string, number>()
 
 export function EventLog({ roomId }: { roomId: string }) {
@@ -70,11 +70,10 @@ export function EventLog({ roomId }: { roomId: string }) {
 
       if (msg.type === 'mutation:broadcast' && msg.payload.eventType) {
         const { eventType, nodeId } = msg.payload
-        if (eventType === 'node:updated') {
-          const last = recentUpdates.get(nodeId) ?? 0
-          if (Date.now() - last < 5000) return   // collapse rapid edits to 1 per 5s per node
-          recentUpdates.set(nodeId, Date.now())
-        }
+        const dedupKey = `${eventType}:${nodeId}`
+        const last = recentUpdates.get(dedupKey) ?? 0
+        if (Date.now() - last < 5000) return   // 1 event per type+node per 5s
+        recentUpdates.set(dedupKey, Date.now())
         add(eventType, nodeId)
       }
       if (msg.type === 'node:decision_locked') add('decision:locked', msg.payload.nodeId)

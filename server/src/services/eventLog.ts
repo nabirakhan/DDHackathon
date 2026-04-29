@@ -18,8 +18,12 @@ export async function writeEvent(
   nodeId: string | null,
   payload: Record<string, unknown>
 ) {
-  const key = `${roomId}:${nodeId}:${eventType}`
   const textSnapshot = payload.textSnapshot as string | undefined
+
+  // Skip pure position/resize mutations — only log updates that carry text content
+  if (eventType === 'node:updated' && !textSnapshot) return { id: null }
+
+  const key = `${roomId}:${nodeId}:${eventType}`
   
   if (!pendingEvents.has(key)) {
     pendingEvents.set(key, {
